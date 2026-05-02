@@ -1,0 +1,229 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────────────────────────────────────────
+// Enums
+// ───────────────────────────────────────────────────────────────
+
+enum DriverStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+enum AvailabilityStatus {
+  ONLINE
+  OFFLINE
+  ON_TRIP
+}
+
+enum TripStatus {
+  REQUESTED
+  ACCEPTED
+  DRIVER_ASSIGNED
+  DRIVER_EN_ROUTE
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentType {
+  DRIVERS_LICENSE
+  VEHICLE_REGISTRATION
+  VEHICLE_INSURANCE
+  PROFILE_PHOTO
+  POLICE_CLEARANCE
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  WALLET
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ───────────────────────────────────────────────────────────────
+// Driver
+// ───────────────────────────────────────────────────────────────
+
+model Driver {
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  phone              String             @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  profilePhotoUrl    String?
+  dateOfBirth        DateTime?
+  status             DriverStatus       @default(PENDING)
+  availabilityStatus AvailabilityStatus @default(OFFLINE)
+  currentLatitude    Float?
+  currentLongitude   Float?
+  rating             Float              @default(0)
+  totalTrips         Int                @default(0)
+  refreshToken       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  vehicle   Vehicle?
+  documents Document[]
+  trips     Trip[]
+  earnings  Earning[]
+  payouts   Payout[]
+
+  @@map("drivers")
+}
+
+// ───────────────────────────────────────────────────────────────
+// Vehicle
+// ───────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id           String   @id @default(cuid())
+  driverId     String   @unique
+  make         String
+  model        String
+  year         Int
+  color        String
+  licensePlate String   @unique
+  capacity     Int      @default(4)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("vehicles")
+}
+
+// ───────────────────────────────────────────────────────────────
+// Documents
+// ───────────────────────────────────────────────────────────────
+
+model Document {
+  id           String         @id @default(cuid())
+  driverId     String
+  type         DocumentType
+  status       DocumentStatus @default(PENDING)
+  fileUrl      String
+  expiryDate   DateTime?
+  rejectedNote String?
+  reviewedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, type])
+  @@map("documents")
+}
+
+// ───────────────────────────────────────────────────────────────
+// Trip
+// ───────────────────────────────────────────────────────────────
+
+model Trip {
+  id                    String        @id @default(cuid())
+  driverId              String?
+  passengerId           String
+  status                TripStatus    @default(REQUESTED)
+  pickupAddress         String
+  pickupLatitude        Float
+  pickupLongitude       Float
+  dropoffAddress        String
+  dropoffLatitude       Float
+  dropoffLongitude      Float
+  estimatedDistance     Float?
+  estimatedDuration     Int?          // minutes
+  actualDistance        Float?
+  actualDuration        Int?          // minutes
+  baseFare              Float?
+  totalFare             Float?
+  paymentMethod         PaymentMethod @default(CASH)
+  passengerRating       Float?
+  driverRating          Float?
+  passengerNote         String?
+  driverNote            String?
+  cancellationReason    String?
+  cancelledBy           String?       // 'driver' | 'passenger' | 'system'
+  requestedAt           DateTime      @default(now())
+  acceptedAt            DateTime?
+  driverArrivedAt       DateTime?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  cancelledAt           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  driver  Driver?  @relation(fields: [driverId], references: [id])
+  earning Earning?
+
+  @@map("trips")
+}
+
+// ───────────────────────────────────────────────────────────────
+// Earning
+// ───────────────────────────────────────────────────────────────
+
+model Earning {
+  id            String   @id @default(cuid())
+  driverId      String
+  tripId        String   @unique
+  grossAmount   Float
+  platformFee   Float
+  netAmount     Float
+  currency      String   @default("AUD")
+  isPaid        Boolean  @default(false)
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id])
+  trip   Trip   @relation(fields: [tripId], references: [id])
+
+  @@map("earnings")
+}
+
+// ───────────────────────────────────────────────────────────────
+// Payout
+// ───────────────────────────────────────────────────────────────
+
+model Payout {
+  id            String       @id @default(cuid())
+  driverId      String
+  amount        Float
+  currency      String       @default("AUD")
+  status        PayoutStatus @default(PENDING)
+  bankAccountId String?
+  reference     String?
+  processedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@map("payouts")
+}
