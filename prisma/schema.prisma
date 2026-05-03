@@ -1,229 +1,1541 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["auth", "public"]
 }
 
-// ───────────────────────────────────────────────────────────────
-// Enums
-// ───────────────────────────────────────────────────────────────
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model address {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String?
+  address_line_one String?
+  address_line_two String?
+  suburb           String?
+  post_code        String?
+  state            String?
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  owner_company_id String?        @db.Uuid
+  organisation     organisation[]
 
-enum DriverStatus {
-  PENDING
-  APPROVED
-  SUSPENDED
-  REJECTED
+  @@schema("public")
 }
 
-enum AvailabilityStatus {
-  ONLINE
-  OFFLINE
-  ON_TRIP
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_insurance {
+  created_at               DateTime?         @default(now()) @db.Timestamptz(6)
+  policy_number            String?
+  start_date               DateTime          @db.Date
+  end_date                 DateTime          @db.Date
+  premium_amount           Float?            @db.Real
+  premium_frequency        String?
+  provider_contact_number  String?
+  provider_contact_name    String?
+  provider_contact_email   String?
+  provider_contact_website String?
+  owner_user_id            String?           @db.Uuid
+  insurance_provider_id    String?           @db.Uuid
+  id                       String            @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  owner_company_id         String?           @db.Uuid
+  car_id                   String?           @db.Uuid
+  provider_name            String?
+  total_premium_amount     Float
+  cancellation_date        DateTime?         @db.Timestamptz(6)
+  cancellation_reason      String?
+  cars                     cars?             @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  insurance_files          insurance_files[]
+
+  @@schema("public")
 }
 
-enum TripStatus {
-  REQUESTED
-  ACCEPTED
-  DRIVER_ASSIGNED
-  DRIVER_EN_ROUTE
-  ARRIVED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_lease {
+  created_at       DateTime?     @default(now()) @db.Timestamptz(6)
+  car_id           String?       @db.Uuid
+  driver_id        String        @db.Uuid
+  start_date       DateTime      @db.Timestamptz(6)
+  end_date         DateTime?     @db.Timestamptz(6)
+  pickup_time      DateTime?     @db.Timestamptz(6)
+  dropoff_time     DateTime?     @db.Timestamptz(6)
+  price_per_day    Float         @db.Real
+  owner_company_id String        @db.Uuid
+  owner_user_id    String        @db.Uuid
+  id               String        @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  contract_file    String?
+  license_file     String?
+  passport_file    String?
+  bond_amount      Float?        @db.Real
+  cars             cars?         @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drivers          drivers       @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies        companies     @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([car_id], map: "car_lease_car_id_index")
+  @@index([driver_id], map: "car_lease_driver_id_index")
+  @@index([owner_company_id], map: "car_lease_owner_company_id_index")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_loan_contracts {
+  id               String         @id @db.Uuid
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  loan_contract_id String         @db.Uuid
+  cars             cars           @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  loan_contracts   loan_contracts @relation(fields: [loan_contract_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_log_book {
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  car_id           String         @db.Uuid
+  owner_company_id String         @db.Uuid
+  service_date     DateTime       @db.Timestamptz(6)
+  title            String?
+  description      String?
+  cost             Float?         @db.Real
+  provider_name    String?
+  provider_phone   String?
+  payment_date     DateTime?      @db.Timestamptz(6)
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  odometer         BigInt
+  owner_user_id    String?        @db.Uuid
+  cars             cars           @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies        companies      @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "car_log_book_company_id_fkey")
+  user_profiles    user_profiles? @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_odometer {
+  id               BigInt        @id @default(autoincrement())
+  created_at       DateTime      @default(now()) @db.Timestamptz(6)
+  reading_date     DateTime      @db.Timestamptz(6)
+  reading_km       BigInt
+  owner_company_id String        @db.Uuid
+  owner_user_id    String        @db.Uuid
+  car_id           String        @db.Uuid
+  cars             cars          @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies        companies     @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_penalties {
+  id                    String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+  car_id                String?   @db.Uuid
+  car_registration      String?
+  reference_number      String?
+  issue_date            DateTime? @db.Timestamptz(6)
+  due_date              DateTime? @db.Timestamptz(6)
+  driver_id             String?   @db.Uuid
+  driver_first_name     String?
+  driver_last_name      String?
+  driver_license_number String?
+  driver_mobile         String?
+  driver_address        String?
+  penalty_document_link String?
+  penalty_amount        String?
+  penalty_demerits      String?
+  penalty_offence       String?
+  nominated_at          DateTime? @db.Timestamptz(6)
+  nominated_by          String?   @db.Uuid
+  nominated_by_name     String?
+  owner_user_id         String?   @db.Uuid
+  owner_company_id      String?   @db.Uuid
+  cars                  cars?     @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_prices {
+  id                String                @id(map: "price_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime              @default(now()) @db.Timestamptz(6)
+  external_id       String?
+  unit_amount       Decimal               @db.Decimal
+  active            Boolean
+  interval          pricing_plan_interval
+  interval_count    Int                   @default(1)
+  metadata          Json?
+  trial_period_days Int?                  @db.SmallInt
+  owner_company_id  String                @db.Uuid
+  owner_user_id     String                @db.Uuid
+  end_date          DateTime?             @db.Timestamptz(6)
+  car_id            String                @db.Uuid
+  name              String?
+  cars              cars                  @relation(fields: [car_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  companies         companies             @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles     user_profiles         @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contracts         contracts[]
+  invoice_item      invoice_item[]
+  subscription_item subscription_item[]
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_reminders {
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  title           String?
+  descriptions    String?
+  due_odometer    Int?
+  due_date        DateTime? @db.Date
+  is_done         Boolean?
+  sms_sent        DateTime? @db.Date
+  called_customer DateTime? @db.Date
+  car_id          String    @db.Uuid
+  company_id      String    @db.Uuid
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notify_driver   Boolean
+  cars            cars      @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies       companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model car_files {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  file_name        String
+  file_extension   String?
+  file_size        Decimal?       @db.Decimal
+  file_path        String
+  owner_user_id    String?        @db.Uuid
+  owner_company_id String?        @db.Uuid
+  parent_id        String         @db.Uuid
+  companies        companies?     @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles? @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cars             cars           @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cars {
+  created_at                    DateTime?              @default(now()) @db.Timestamptz(6)
+  registration                  String?                @unique
+  make                          String?
+  model                         String?
+  color                         String?
+  vin                           String?                @unique
+  purchase_date                 DateTime?              @db.Timestamptz(6)
+  build_date                    DateTime?              @db.Timestamptz(6)
+  dealer_name                   String?
+  dealer_contact_name           String?
+  dealer_contact_mobile         String?
+  owner_user_id                 String?                @db.Uuid
+  registration_renew_date       DateTime?              @db.Timestamptz(6)
+  registration_receipt_id       String?
+  registration_certificate_link String?
+  ctp_renew_date                DateTime?              @db.Date
+  ctp_provider_name             String?
+  ctp_policy_number             String?
+  ctp_certificate_link          String?
+  id                            String                 @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  owner_company_id              String?                @db.Uuid
+  fleet_id                      String?                @db.Uuid
+  delete_date                   DateTime?              @db.Timestamptz(6)
+  start_date                    DateTime?              @db.Timestamptz(6)
+  end_date                      DateTime?              @db.Timestamptz(6)
+  year                          Decimal?               @db.Decimal
+  ownership                     String?
+  gps_tracker_id                String?
+  fuel_type                     String?
+  financier                     String?
+  stripe_product_id             String?
+  status                        car_status?            @default(ready)
+  owner_organisation_id         String?                @db.Uuid
+  offloaded                     Boolean?               @default(dbgenerated("((status = 'removed'::car_status) OR (status = 'sold'::car_status) OR (status = 'retired'::car_status))"))
+  car_insurance                 car_insurance[]
+  car_lease                     car_lease[]
+  car_loan_contracts            car_loan_contracts?
+  car_log_book                  car_log_book[]
+  car_odometer                  car_odometer[]
+  car_penalties                 car_penalties[]
+  car_prices                    car_prices[]
+  car_reminders                 car_reminders[]
+  car_files                     car_files[]
+  fleets                        fleets?                @relation(fields: [fleet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                     companies?             @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organisation                  organisation?          @relation(fields: [owner_organisation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contract_return_info          contract_return_info[]
+  contracts                     contracts[]
+  invoice_item                  invoice_item[]
+  subscription                  subscription[]
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model companies {
+  id                    String                 @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  name                  String?
+  abn                   String?
+  created_at            DateTime?              @default(now()) @db.Timestamptz(6)
+  owner_user_id         String?                @db.Uuid
+  address               String?
+  mobile                String?
+  rental_contract_url   String?
+  toll_declaration_form String?
+  car_lease             car_lease[]
+  car_log_book          car_log_book[]
+  car_odometer          car_odometer[]
+  car_prices            car_prices[]
+  car_reminders         car_reminders[]
+  car_files             car_files[]
+  cars                  cars[]
+  contract_return_info  contract_return_info[]
+  contracts             contracts[]
+  credit_notes          credit_notes[]
+  drivers               drivers[]
+  file_uploads          file_uploads[]
+  fleets                fleets[]
+  insurance_files       insurance_files[]
+  invoice               invoice[]
+  loan_contracts        loan_contracts[]
+  loan_files            loan_files[]
+  organisation          organisation[]
+  payment_intent        payment_intent[]
+  payment_links         payment_links[]
+  permission_audit_log  permission_audit_log[]
+  roles                 roles[]
+  subscription          subscription[]
+  subscription_item     subscription_item[]
+  user_companies        user_companies[]
+  user_permissions      user_permissions[]
+  user_profiles         user_profiles[]
+  user_roles            user_roles[]
+  driver_request_categories driver_request_categories[]
+  driver_requests       driver_requests[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model contract_return_info {
+  contract_id         String              @id @db.Uuid
+  car_id              String              @db.Uuid
+  driver_id           String              @db.Uuid
+  notice_date         DateTime            @db.Timestamptz(6)
+  notification_method notification_method
+  return_date         DateTime            @db.Date
+  customer_notes      String?
+  checklist_items     Json?               @default("[]")
+  owner_company_id    String              @db.Uuid
+  created_by          String              @db.Uuid
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  cars                cars                @relation(fields: [car_id], references: [id], onUpdate: NoAction)
+  contracts           contracts           @relation(fields: [contract_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_profiles       user_profiles       @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  drivers             drivers             @relation(fields: [driver_id], references: [id], onUpdate: NoAction)
+  companies           companies           @relation(fields: [owner_company_id], references: [id], onUpdate: NoAction)
+
+  @@index([car_id], map: "idx_contract_return_info_car")
+  @@index([owner_company_id], map: "idx_contract_return_info_company")
+  @@index([driver_id], map: "idx_contract_return_info_driver")
+  @@index([notice_date], map: "idx_contract_return_info_notice_date")
+  @@index([return_date], map: "idx_contract_return_info_return_date")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contracts {
+  created_at             DateTime              @default(now()) @db.Timestamptz(6)
+  owner_company_id       String                @db.Uuid
+  owner_user_id          String                @db.Uuid
+  type                   contract_type
+  driver_id              String                @db.Uuid
+  start_date             DateTime              @db.Timestamptz(6)
+  end_date               DateTime?             @db.Timestamptz(6)
+  length_in_weeks        Decimal               @db.Decimal
+  intended_use           intended_use?
+  allowed_kms_per_week   Decimal?              @db.Decimal
+  name                   String
+  deposit_received       Float?                @db.Real
+  car_id                 String                @db.Uuid
+  start_odometer         Int?
+  id                     String                @id(map: "contract_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stripe_payment_link    String?
+  stripe_subscription_id String?
+  price_id               String                @db.Uuid
+  fuel_level             String?
+  stripe_customer_id     String?
+  preferred_payment_day  String?               @db.VarChar(10)
+  office_notes           String?
+  manager_id             String?               @db.VarChar(50)
+  is_manual_payment      Boolean               @default(false)
+  contract_return_info   contract_return_info?
+  cars                   cars                  @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drivers                drivers               @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies              companies             @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles          user_profiles         @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  car_prices             car_prices            @relation(fields: [price_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_links          payment_links[]
+  subscription           subscription[]
+
+  @@index([driver_id], map: "contracts_driver_id_index")
+  @@index([owner_company_id], map: "contracts_owner_company_id_index")
+  @@index([manager_id], map: "idx_contracts_manager_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model credit_applications {
+  id                                                           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                                   DateTime              @default(now()) @db.Timestamptz(6)
+  credit_note_id                                               String                @db.Uuid
+  invoice_id                                                   String                @db.Uuid
+  amount_applied                                               Int
+  applied_by                                                   String                @db.Uuid
+  applied_at                                                   DateTime              @default(now()) @db.Timestamptz(6)
+  application_method                                           String?               @db.VarChar(20)
+  ip_address                                                   String?               @db.Inet
+  user_agent                                                   String?
+  notes                                                        String?
+  is_reversed                                                  Boolean               @default(false)
+  reversed_at                                                  DateTime?             @db.Timestamptz(6)
+  reversed_by                                                  String?               @db.Uuid
+  reversal_reason                                              String?
+  reversal_application_id                                      String?               @db.Uuid
+  user_profiles_credit_applications_applied_byTouser_profiles  user_profiles         @relation("credit_applications_applied_byTouser_profiles", fields: [applied_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  credit_notes                                                 credit_notes          @relation(fields: [credit_note_id], references: [id], onUpdate: NoAction)
+  invoice                                                      invoice               @relation(fields: [invoice_id], references: [id], onUpdate: NoAction)
+  credit_applications                                          credit_applications?  @relation("credit_applicationsTocredit_applications", fields: [reversal_application_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_credit_applications                                    credit_applications[] @relation("credit_applicationsTocredit_applications")
+  user_profiles_credit_applications_reversed_byTouser_profiles user_profiles?        @relation("credit_applications_reversed_byTouser_profiles", fields: [reversed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([applied_at], map: "idx_credit_applications_applied_at")
+  @@index([credit_note_id], map: "idx_credit_applications_credit")
+  @@index([invoice_id], map: "idx_credit_applications_invoice")
+  @@index([is_reversed], map: "idx_credit_applications_reversed")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model credit_note_audit_log {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  credit_note_id String        @db.Uuid
+  action         String        @db.VarChar(50)
+  user_id        String        @db.Uuid
+  before_state   Json?
+  after_state    Json?
+  changes        Json?
+  metadata       Json?
+  ip_address     String?       @db.Inet
+  user_agent     String?
+  credit_notes   credit_notes  @relation(fields: [credit_note_id], references: [id], onUpdate: NoAction)
+  user_profiles  user_profiles @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([action], map: "idx_audit_log_action")
+  @@index([created_at], map: "idx_audit_log_created_at")
+  @@index([credit_note_id], map: "idx_audit_log_credit_note")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model credit_notes {
+  id                                                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                              DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                                              DateTime                @default(now()) @db.Timestamptz(6)
+  credit_note_number                                      String                  @unique @db.VarChar(50)
+  driver_id                                               String                  @db.Uuid
+  owner_company_id                                        String                  @db.Uuid
+  owner_user_id                                           String                  @db.Uuid
+  original_amount                                         Int
+  currency                                                String                  @default("AUD") @db.VarChar(3)
+  reason                                                  credit_note_reason
+  description                                             String?
+  reference_number                                        String?                 @db.VarChar(100)
+  status                                                  credit_note_status      @default(active)
+  void_reason                                             String?
+  voided_at                                               DateTime?               @db.Timestamptz(6)
+  voided_by                                               String?                 @db.Uuid
+  expires_at                                              DateTime?               @db.Timestamptz(6)
+  metadata                                                Json?
+  credit_applications                                     credit_applications[]
+  credit_note_audit_log                                   credit_note_audit_log[]
+  drivers                                                 drivers                 @relation(fields: [driver_id], references: [id], onUpdate: NoAction)
+  companies                                               companies               @relation(fields: [owner_company_id], references: [id], onUpdate: NoAction)
+  user_profiles_credit_notes_owner_user_idTouser_profiles user_profiles           @relation("credit_notes_owner_user_idTouser_profiles", fields: [owner_user_id], references: [id], onUpdate: NoAction)
+  user_profiles_credit_notes_voided_byTouser_profiles     user_profiles?          @relation("credit_notes_voided_byTouser_profiles", fields: [voided_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([owner_company_id], map: "idx_credit_notes_company")
+  @@index([driver_id], map: "idx_credit_notes_driver")
+  @@index([credit_note_number], map: "idx_credit_notes_number")
+  @@index([status], map: "idx_credit_notes_status")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model driver_documents {
+  id                String           @id(map: "driver_docs_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime         @db.Timestamptz(6)
+  file_name         String
+  file_path         String
+  file_size         BigInt
+  mime_type         String
+  file_extension    String
+  document_type     DocumentType
+  document_category DocumentCategory
+  title             String?
+  description       String?
+  tags              String[]
+  is_verified       Boolean          @default(false)
+  verified_at       DateTime?        @db.Timestamptz(6)
+  verified_by       String?
+  driver_profile_id String           @db.Uuid
+  driver_profiles   driver_profiles  @relation(fields: [driver_profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([document_category])
+  @@index([document_type])
+  @@index([driver_profile_id])
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model driver_invite {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  expires_at DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model driver_onboard_forms {
+  id                                                             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                                                     String                     @db.Uuid
+  first_name                                                     String
+  last_name                                                      String
+  dob                                                            DateTime                   @db.Date
+  driver_license_number                                          String
+  address                                                        String
+  phone                                                          String
+  email                                                          String
+  emergency_contact_number                                       String?
+  has_unrestricted_nsw_license                                   Boolean                    @default(false)
+  has_active_rideshare_account                                   Boolean                    @default(false)
+  captcha_token                                                  String?
+  created_at                                                     DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                     DateTime                   @default(now()) @db.Timestamptz(6)
+  address_line1                                                  String?
+  address_line2                                                  String?
+  suburb                                                         String?
+  state                                                          String?
+  post_code                                                      String?
+  status                                                         driver_onboard_form_status @default(pending)
+  approved_by                                                    String?                    @db.Uuid
+  approved_at                                                    DateTime?                  @db.Timestamptz(6)
+  rejected_by                                                    String?                    @db.Uuid
+  rejected_at                                                    DateTime?                  @db.Timestamptz(6)
+  rejection_reason                                               String?
+  converted_at                                                   DateTime?                  @db.Timestamptz(6)
+  converted_by                                                   String?                    @db.Uuid
+  driver_license_state                                           String?                    @db.VarChar(3)
+  user_profiles_driver_onboard_forms_approved_byTouser_profiles  user_profiles?             @relation("driver_onboard_forms_approved_byTouser_profiles", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles_driver_onboard_forms_converted_byTouser_profiles user_profiles?             @relation("driver_onboard_forms_converted_byTouser_profiles", fields: [converted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles_driver_onboard_forms_rejected_byTouser_profiles  user_profiles?             @relation("driver_onboard_forms_rejected_byTouser_profiles", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([approved_by], map: "idx_driver_onboard_forms_approved_by")
+  @@index([company_id], map: "idx_driver_onboard_forms_company")
+  @@index([email], map: "idx_driver_onboard_forms_email")
+  @@index([status], map: "idx_driver_onboard_forms_status")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model driver_profiles {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @db.Timestamptz(6)
+  first_name          String
+  last_name           String
+  email               String             @unique
+  mobile              String?
+  date_of_birth       DateTime?          @db.Timestamptz(6)
+  address_line_one    String?
+  address_line_two    String?
+  address_suburb      String?
+  address_state       String?
+  address_post_code   String?
+  address_country     String?
+  license_number      String?
+  license_state       String?
+  license_country     String?
+  license_expiry      DateTime?          @db.Timestamptz(6)
+  emergency_name      String?
+  emergency_phone     String?
+  emergency_relation  String?
+  rideshare_platforms String[]
+  bio                 String?
+  experience_years    Int?
+  is_active           Boolean            @default(true)
+  is_verified         Boolean            @default(false)
+  profile_completion  Float              @default(0.0) @db.Real
+  user_id             String?
+  driver_documents    driver_documents[]
+  drivers             drivers[]
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model drivers {
+  id                     String                 @id(map: "car_drivers_pkey") @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at             DateTime               @default(now()) @db.Timestamptz(6)
+  owner_user_id          String                 @db.Uuid
+  first_name             String
+  last_name              String
+  license_number         String?
+  dob                    DateTime?              @db.Timestamptz(6)
+  mobile                 String?
+  address_line_one       String?
+  address_line_two       String?
+  address_suburb         String?
+  address_state          String?
+  address_post_code      String?
+  owner_company_id       String                 @db.Uuid
+  license_front_photo    String?
+  license_back_photo     String?
+  subscription_id        String?
+  emergency_name         String?
+  emergency_phone        String?
+  emergency_relation     String?
+  license_state          String?
+  license_country        String?
+  license_expiry         DateTime?              @db.Timestamptz(6)
+  stripe_customer_id     String?
+  email                  String?
+  stripe_setup_link      String?
+  address_country        String?
+  driver_profile_id      String?                @db.Uuid
+  card_last_four         String?                @db.VarChar(4)
+  card_expiry_month      Int?                   @db.SmallInt
+  card_expiry_year       Int?                   @db.SmallInt
+  card_setup_at          DateTime?              @db.Timestamptz(6)
+  payway_customer_number String?                @unique @db.VarChar(20)
+  business_name          String?                @db.VarChar(255)
+  business_abn           String?                @db.VarChar(11)
+  auth_user_id           String?                @unique @db.Uuid
+  invite_token           String?                @unique @db.Uuid
+  invite_token_expires_at DateTime?              @db.Timestamptz(6)
+  car_lease              car_lease[]
+  contract_return_info   contract_return_info[]
+  contracts              contracts[]
+  credit_notes           credit_notes[]
+  driver_profiles        driver_profiles?       @relation(fields: [driver_profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "driver_profile_linked_fkey")
+  companies              companies              @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice                invoice[]
+  payment_links          payment_links[]
+  subscription           subscription[]
+  driver_requests        driver_requests[]
+  driver_request_comments_authored driver_request_comments[] @relation("driver_request_comments_driver")
+
+  @@index([driver_profile_id], map: "fki_c")
+  @@index([auth_user_id], map: "idx_drivers_auth_user_id")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model file_uploads {
+  id               String         @id(map: "driver_documents_pkey") @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  file_name        String
+  owner_user_id    String?        @db.Uuid
+  onwer_company_id String?        @db.Uuid
+  file_extension   String?
+  file_size        Decimal?       @db.Decimal
+  file_path        String
+  companies        companies?     @relation(fields: [onwer_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles? @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model fleets {
+  id               String     @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  name             String?
+  owner_user_id    String?    @db.Uuid
+  owner_company_id String?    @db.Uuid
+  abn              String?
+  email            String?
+  phone            String?
+  cars             cars[]
+  companies        companies? @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model insurance_files {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  file_name        String
+  file_extension   String?
+  file_size        Decimal?       @db.Decimal
+  file_path        String
+  owner_user_id    String?        @db.Uuid
+  owner_company_id String?        @db.Uuid
+  parent_id        String         @db.Uuid
+  companies        companies?     @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles? @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  car_insurance    car_insurance  @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model insurance_providers {
+  id                 String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  owner_user_id      String?   @db.Uuid
+  name               String?
+  contact_mobile     String?
+  contact_email      String?
+  contact_first_name String?
+  contact_last_name  String?
+  contact_website    String?
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoice {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at             DateTime              @default(now()) @db.Timestamptz(6)
+  subscription_id        String?               @db.Uuid
+  application_fee_amount Float?                @db.Real
+  currency               String?
+  days_until_due         Int?
+  due_date               DateTime?             @db.Timestamptz(6)
+  metadata               Json?
+  owner_company_id       String?               @db.Uuid
+  owner_user_id          String?               @db.Uuid
+  customer_abn           String?
+  customer_address       String?
+  customer_business_name String?
+  customer_city          String?
+  customer_email         String?
+  customer_name          String?
+  customer_phone         String?
+  customer_post_code     String?
+  customer_state         String?
+  invoice_name           String?
+  invoice_status         invoice_status        @default(draft)
+  period_end             DateTime?             @db.Timestamptz(6)
+  period_start           DateTime?             @db.Timestamptz(6)
+  comments               String?
+  marked_as_paid_on      DateTime?             @db.Timestamptz(6)
+  expected_payment_date  DateTime?             @db.Timestamptz(6)
+  office_notes           String?
+  is_manual_payment      Boolean?              @default(false)
+  amount                 Int                   @default(0)
+  balance                Int                   @default(0)
+  voided_at              DateTime?             @db.Timestamptz(6)
+  driver_id              String?               @db.Uuid
+  credit_applications    credit_applications[]
+  drivers                drivers?              @relation(fields: [driver_id], references: [id])
+  companies              companies?            @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles          user_profiles?        @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subscription           subscription?         @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice_item           invoice_item[]
+  invoice_payments       invoice_payments[]
+  payment_intent         payment_intent[]
+
+  @@index([driver_id], map: "idx_invoice_driver_id")
+  @@index([expected_payment_date], map: "idx_invoice_expected_payment_date")
+  @@index([invoice_status, expected_payment_date], map: "idx_invoice_status_expected_date")
+  @@index([owner_company_id], map: "invoice_owner_company_id_index")
+  @@index([subscription_id], map: "invoice_subscription_id_index")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoice_item {
+  id                                                   BigInt        @id @default(autoincrement())
+  created_at                                           DateTime      @default(now()) @db.Timestamptz(6)
+  period_start                                         DateTime?     @db.Timestamptz(6)
+  period_end                                           DateTime?     @db.Timestamptz(6)
+  quantity                                             Int           @db.SmallInt
+  subscription                                         String?       @db.Uuid
+  invoice_id                                           String?       @db.Uuid
+  metadata                                             Json?
+  unit_amount                                          Int
+  gst_percentage                                       Float?        @db.Real
+  description                                          String?
+  price_id                                             String?       @db.Uuid
+  product_id                                           String?       @db.Uuid
+  invoice                                              invoice?      @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  car_prices                                           car_prices?   @relation(fields: [price_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cars                                                 cars?         @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subscription_invoice_item_subscriptionTosubscription subscription? @relation("invoice_item_subscriptionTosubscription", fields: [subscription], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([invoice_id], map: "invoice_item_invoice_id_index")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model invoice_payments {
+  id                                                        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                                DateTime           @default(now()) @db.Timestamptz(6)
+  invoice_id                                                String             @db.Uuid
+  amount                                                    Int
+  payment_date                                              DateTime           @db.Timestamptz(6)
+  payment_method                                            String?            @db.VarChar(50)
+  reference_number                                          String?            @db.VarChar(100)
+  notes                                                     String?
+  recorded_by                                               String             @db.Uuid
+  recorded_at                                               DateTime           @default(now()) @db.Timestamptz(6)
+  is_reversed                                               Boolean            @default(false)
+  reversed_at                                               DateTime?          @db.Timestamptz(6)
+  reversed_by                                               String?            @db.Uuid
+  reversal_reason                                           String?
+  reversal_payment_id                                       String?            @db.Uuid
+  invoice                                                   invoice            @relation(fields: [invoice_id], references: [id], onUpdate: NoAction)
+  user_profiles_invoice_payments_recorded_byTouser_profiles user_profiles      @relation("invoice_payments_recorded_byTouser_profiles", fields: [recorded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice_payments                                          invoice_payments?  @relation("invoice_paymentsToinvoice_payments", fields: [reversal_payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_invoice_payments                                    invoice_payments[] @relation("invoice_paymentsToinvoice_payments")
+  user_profiles_invoice_payments_reversed_byTouser_profiles user_profiles?     @relation("invoice_payments_reversed_byTouser_profiles", fields: [reversed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([payment_date], map: "idx_invoice_payments_date")
+  @@index([invoice_id], map: "idx_invoice_payments_invoice")
+  @@index([is_reversed], map: "idx_invoice_payments_reversed")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model loan_contracts {
+  id                      String               @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at              DateTime?            @default(now()) @db.Timestamptz(6)
+  reference_number        String?
+  provider_name           String?
+  amount_principal        Float                @db.Real
+  amount_total            Float                @db.Real
+  interest_rate           Float                @db.Real
+  start_date              DateTime             @db.Timestamptz(6)
+  end_date                DateTime             @db.Timestamptz(6)
+  installment_amount      Float                @db.Real
+  provider_contact_name   String?
+  provider_contact_mobile String?
+  provider_contact_email  String?
+  payout_amount           Float?               @db.Real
+  down_payment            Float?               @db.Real
+  payout_date             DateTime?            @db.Timestamptz(6)
+  balloon_payment         Float?               @db.Real
+  owner_company_id        String               @db.Uuid
+  owner_user_id           String               @db.Uuid
+  car_loan_contracts      car_loan_contracts[]
+  companies               companies            @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles           user_profiles        @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  loan_files              loan_files[]
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model loan_files {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime?       @default(now()) @db.Timestamptz(6)
+  file_name        String?
+  file_extension   String?
+  file_size        Decimal?        @db.Decimal
+  file_path        String?
+  owner_user_id    String?         @db.Uuid
+  owner_company_id String?         @db.Uuid
+  parent_id        String?         @db.Uuid
+  companies        companies?      @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles?  @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  loan_contracts   loan_contracts? @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organisation {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  legal_name        String?
+  trading_name      String?
+  abn               String?
+  acn               String?
+  postal_address_id String?   @db.Uuid
+  owner_company_id  String    @db.Uuid
+  phone             String?
+  officer_name      String?
+  state             String?
+  post_code         BigInt?
+  address_line_one  String?
+  address_line_two  String?
+  suburb            String?
+  cars              cars[]
+  companies         companies @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  address           address?  @relation(fields: [postal_address_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payment_frequency {
+  id         BigInt    @id @default(autoincrement())
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  name       String
+  days       Int
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payment_intent {
+  id                   String          @id(map: "payment_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at           DateTime        @default(now()) @db.Timestamptz(6)
+  invoice_id           String?         @db.Uuid
+  payment_status       payment_status?
+  currency             String
+  amount               Int
+  description          String?
+  canceled_at          DateTime?       @db.Timestamptz(6)
+  amount_received      Int?
+  applicaiton_fee      Int?
+  owner_company_id     String?         @db.Uuid
+  canceled_reason      String?
+  receipt_id           String?
+  receipt_system       String?
+  transaction_metadata Json?
+  idempotency_key      String?         @unique(map: "payment_intent_idempotency_key_unique")
+  attempt_reference    String?
+  invoice              invoice?        @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_invoice_id_fkey")
+  companies            companies?      @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_owner_company_id_fkey")
+
+  @@unique([invoice_id, attempt_reference], map: "payment_intent_invoice_id_attempt_reference_unique")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_links {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  link_id            String     @unique @db.Uuid
+  company_id         String     @db.Uuid
+  driver_id          String?    @db.Uuid
+  contract_id        String?    @db.Uuid
+  expires_at         DateTime   @db.Timestamptz(6)
+  is_active          Boolean    @default(true)
+  is_single_use      Boolean    @default(false)
+  usage_count        Int        @default(0)
+  max_usage_count    Int        @default(1)
+  passcode_hash      String?
+  metadata           Json       @default("{}")
+  created_at         DateTime   @default(now()) @db.Timestamptz(6)
+  created_by_user_id String?    @db.Uuid
+  last_used_at       DateTime?  @db.Timestamptz(6)
+  deactivated_at     DateTime?  @db.Timestamptz(6)
+  companies          companies  @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "payment_links_company_fk")
+  contracts          contracts? @relation(fields: [contract_id], references: [id], onUpdate: NoAction, map: "payment_links_contract_fk")
+  drivers            drivers?   @relation(fields: [driver_id], references: [id], onUpdate: NoAction, map: "payment_links_driver_fk")
+
+  @@index([expires_at], map: "idx_payment_links_expires_at")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model permission_audit_log {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
+  event_type      String         @db.VarChar(50)
+  event_status    String         @db.VarChar(20)
+  user_id         String?        @db.Uuid
+  company_id      String?        @db.Uuid
+  permission_name String?        @db.VarChar(100)
+  role_name       String?        @db.VarChar(100)
+  resource_type   String?        @db.VarChar(50)
+  resource_id     String?        @db.Uuid
+  action          String?        @db.VarChar(50)
+  ip_address      String?        @db.Inet
+  user_agent      String?
+  request_path    String?
+  details         Json?
+  denial_reason   String?
+  companies       companies?     @relation(fields: [company_id], references: [id], onUpdate: NoAction, map: "permission_audit_company_fkey")
+  user_profiles   user_profiles? @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "permission_audit_user_fkey")
+
+  @@index([company_id], map: "idx_permission_audit_company")
+  @@index([created_at], map: "idx_permission_audit_created")
+  @@index([details], map: "idx_permission_audit_details", type: Gin)
+  @@index([event_status], map: "idx_permission_audit_event_status")
+  @@index([event_type], map: "idx_permission_audit_event_type")
+  @@index([permission_name], map: "idx_permission_audit_permission")
+  @@index([user_id], map: "idx_permission_audit_user")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model permissions {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @default(now()) @db.Timestamptz(6)
+  name                 String             @db.VarChar(100)
+  display_name         String             @db.VarChar(255)
+  description          String?
+  domain               String             @db.VarChar(50)
+  action               String             @db.VarChar(50)
+  scope                String?            @db.VarChar(50)
+  is_system_permission Boolean            @default(false)
+  is_active            Boolean            @default(true)
+  created_by           String?            @db.Uuid
+  updated_by           String?            @db.Uuid
+  role_permissions     role_permissions[]
+  user_permissions     user_permissions[]
+
+  @@index([action], map: "idx_permissions_action")
+  @@index([domain], map: "idx_permissions_domain")
+  @@index([domain, action], map: "idx_permissions_domain_action")
+  @@index([is_active], map: "idx_permissions_is_active")
+  @@index([name], map: "idx_permissions_name")
+  @@index([is_system_permission, is_active], map: "idx_permissions_system_active")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model role_permissions {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  role_id       String      @db.Uuid
+  permission_id String      @db.Uuid
+  granted_by    String?     @db.Uuid
+  granted_at    DateTime    @default(now()) @db.Timestamptz(6)
+  is_active     Boolean     @default(true)
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_permissions_permission_fkey")
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_permissions_role_fkey")
+
+  @@unique([role_id, permission_id], map: "role_permissions_unique")
+  @@index([is_active], map: "idx_role_permissions_active")
+  @@index([permission_id], map: "idx_role_permissions_permission")
+  @@index([role_id], map: "idx_role_permissions_role")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model roles {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  name             String             @db.VarChar(100)
+  display_name     String             @db.VarChar(255)
+  description      String?
+  is_system_role   Boolean            @default(false)
+  is_active        Boolean            @default(true)
+  created_by       String?            @db.Uuid
+  updated_by       String?            @db.Uuid
+  company_id       String?            @db.Uuid
+  role_permissions role_permissions[]
+  companies        companies?         @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "roles_company_fkey")
+  user_roles       user_roles[]
+
+  @@index([is_active], map: "idx_roles_is_active")
+  @@index([is_system_role], map: "idx_roles_is_system")
+  @@index([name], map: "idx_roles_name")
+  @@index([is_system_role, is_active], map: "idx_roles_system_active")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subscription {
+  id                                                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                           DateTime            @default(now()) @db.Timestamptz(6)
+  contract_id                                          String?             @db.Uuid
+  external_id                                          String?
+  status                                               subscription_status
+  metadata                                             Json?
+  current_period_start                                 DateTime?           @db.Timestamptz(6)
+  current_period_end                                   DateTime?           @db.Timestamptz(6)
+  cancel_at                                            DateTime?           @db.Timestamptz(6)
+  canceled_at                                          DateTime?           @db.Timestamptz(6)
+  trial_start                                          DateTime?           @db.Timestamptz(6)
+  trial_end                                            DateTime?           @db.Timestamptz(6)
+  stripe_setup_link                                    String?
+  billed_to                                            DateTime?           @db.Timestamptz(6)
+  start_at                                             DateTime?           @db.Timestamptz(6)
+  pause_collection_resumes_at                          DateTime?           @db.Timestamptz(6)
+  owner_company_id                                     String              @db.Uuid
+  owner_user_id                                        String              @db.Uuid
+  car_id                                               String?             @db.Uuid
+  driver_id                                            String?             @db.Uuid
+  invoice                                              invoice[]
+  invoice_item_invoice_item_subscriptionTosubscription invoice_item[]      @relation("invoice_item_subscriptionTosubscription")
+  cars                                                 cars?               @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contracts                                            contracts?          @relation(fields: [contract_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drivers                                              drivers?            @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                                            companies           @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "subscription_onwer_company_id_fkey")
+  user_profiles                                        user_profiles       @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subscription_item                                    subscription_item[]
+
+  @@index([contract_id], map: "subscription_contract_id_index")
+  @@index([owner_company_id], map: "subscription_owner_company_id_index")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subscription_item {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  price_id         String         @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  metadata         Json?          @db.Json
+  quantity         Int?
+  subscription_id  String         @db.Uuid
+  end_date         DateTime?      @db.Timestamptz(6)
+  owner_company_id String?        @db.Uuid
+  owner_user_id    String?        @db.Uuid
+  companies        companies?     @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles? @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  car_prices       car_prices     @relation(fields: [price_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subscription     subscription   @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([subscription_id], map: "subscription_item_subscription_id_index")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_companies {
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  user_id    String    @db.Uuid
+  company_id String    @db.Uuid
+  role       String?
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, company_id])
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_permissions {
+  id                                                       String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                               DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                                               DateTime       @default(now()) @db.Timestamptz(6)
+  user_id                                                  String         @db.Uuid
+  company_id                                               String         @db.Uuid
+  permission_id                                            String         @db.Uuid
+  is_active                                                Boolean        @default(true)
+  valid_from                                               DateTime?      @db.Timestamptz(6)
+  valid_until                                              DateTime?      @db.Timestamptz(6)
+  granted_by                                               String?        @db.Uuid
+  granted_at                                               DateTime       @default(now()) @db.Timestamptz(6)
+  revoked_by                                               String?        @db.Uuid
+  revoked_at                                               DateTime?      @db.Timestamptz(6)
+  revocation_reason                                        String?
+  companies                                                companies      @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_permissions_company_fkey")
+  user_profiles_user_permissions_granted_byTouser_profiles user_profiles? @relation("user_permissions_granted_byTouser_profiles", fields: [granted_by], references: [id], onUpdate: NoAction)
+  permissions                                              permissions    @relation(fields: [permission_id], references: [id], onUpdate: NoAction, map: "user_permissions_permission_fkey")
+  user_profiles_user_permissions_revoked_byTouser_profiles user_profiles? @relation("user_permissions_revoked_byTouser_profiles", fields: [revoked_by], references: [id], onUpdate: NoAction)
+  user_profiles_user_permissions_user_idTouser_profiles    user_profiles  @relation("user_permissions_user_idTouser_profiles", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_permissions_user_fkey")
+
+  @@unique([user_id, company_id, permission_id], map: "user_permissions_unique")
+  @@index([is_active], map: "idx_user_permissions_active")
+  @@index([company_id], map: "idx_user_permissions_company")
+  @@index([permission_id], map: "idx_user_permissions_permission")
+  @@index([user_id], map: "idx_user_permissions_user")
+  @@index([user_id, company_id], map: "idx_user_permissions_user_company")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_profiles {
+  created_at                                                            DateTime?               @default(now()) @db.Timestamptz(6)
+  firstName                                                             String?
+  lastName                                                              String?
+  id                                                                    String                  @id @db.Uuid
+  selected_company_id                                                   String?                 @db.Uuid
+  car_lease                                                             car_lease[]
+  car_log_book                                                          car_log_book[]
+  car_odometer                                                          car_odometer[]
+  car_prices                                                            car_prices[]
+  car_files                                                             car_files[]
+  contract_return_info                                                  contract_return_info[]
+  contracts                                                             contracts[]
+  credit_applications_credit_applications_applied_byTouser_profiles     credit_applications[]   @relation("credit_applications_applied_byTouser_profiles")
+  credit_applications_credit_applications_reversed_byTouser_profiles    credit_applications[]   @relation("credit_applications_reversed_byTouser_profiles")
+  credit_note_audit_log                                                 credit_note_audit_log[]
+  credit_notes_credit_notes_owner_user_idTouser_profiles                credit_notes[]          @relation("credit_notes_owner_user_idTouser_profiles")
+  credit_notes_credit_notes_voided_byTouser_profiles                    credit_notes[]          @relation("credit_notes_voided_byTouser_profiles")
+  driver_onboard_forms_driver_onboard_forms_approved_byTouser_profiles  driver_onboard_forms[]  @relation("driver_onboard_forms_approved_byTouser_profiles")
+  driver_onboard_forms_driver_onboard_forms_converted_byTouser_profiles driver_onboard_forms[]  @relation("driver_onboard_forms_converted_byTouser_profiles")
+  driver_onboard_forms_driver_onboard_forms_rejected_byTouser_profiles  driver_onboard_forms[]  @relation("driver_onboard_forms_rejected_byTouser_profiles")
+  file_uploads                                                          file_uploads[]
+  insurance_files                                                       insurance_files[]
+  invoice                                                               invoice[]
+  invoice_payments_invoice_payments_recorded_byTouser_profiles          invoice_payments[]      @relation("invoice_payments_recorded_byTouser_profiles")
+  invoice_payments_invoice_payments_reversed_byTouser_profiles          invoice_payments[]      @relation("invoice_payments_reversed_byTouser_profiles")
+  loan_contracts                                                        loan_contracts[]
+  loan_files                                                            loan_files[]
+  permission_audit_log                                                  permission_audit_log[]
+  subscription                                                          subscription[]
+  subscription_item                                                     subscription_item[]
+  user_permissions_user_permissions_granted_byTouser_profiles           user_permissions[]      @relation("user_permissions_granted_byTouser_profiles")
+  user_permissions_user_permissions_revoked_byTouser_profiles           user_permissions[]      @relation("user_permissions_revoked_byTouser_profiles")
+  user_permissions_user_permissions_user_idTouser_profiles              user_permissions[]      @relation("user_permissions_user_idTouser_profiles")
+  companies                                                             companies?              @relation(fields: [selected_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_roles_user_roles_assigned_byTouser_profiles                      user_roles[]            @relation("user_roles_assigned_byTouser_profiles")
+  user_roles_user_roles_revoked_byTouser_profiles                       user_roles[]            @relation("user_roles_revoked_byTouser_profiles")
+  user_roles_user_roles_user_idTouser_profiles                          user_roles[]            @relation("user_roles_user_idTouser_profiles")
+  driver_requests_assigned                                              driver_requests[]       @relation("driver_requests_assigned_to")
+  driver_requests_resolved                                              driver_requests[]       @relation("driver_requests_resolved_by")
+  driver_request_comments_authored                                      driver_request_comments[] @relation("driver_request_comments_user")
+  driver_request_status_history_changes                                 driver_request_status_history[] @relation("driver_request_status_history_user")
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model user_roles {
+  id                                                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                          DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime       @default(now()) @db.Timestamptz(6)
+  user_id                                             String         @db.Uuid
+  company_id                                          String         @db.Uuid
+  role_id                                             String         @db.Uuid
+  is_active                                           Boolean        @default(true)
+  valid_from                                          DateTime?      @db.Timestamptz(6)
+  valid_until                                         DateTime?      @db.Timestamptz(6)
+  assigned_by                                         String?        @db.Uuid
+  assigned_at                                         DateTime       @default(now()) @db.Timestamptz(6)
+  revoked_by                                          String?        @db.Uuid
+  revoked_at                                          DateTime?      @db.Timestamptz(6)
+  revocation_reason                                   String?
+  user_profiles_user_roles_assigned_byTouser_profiles user_profiles? @relation("user_roles_assigned_byTouser_profiles", fields: [assigned_by], references: [id], onUpdate: NoAction)
+  companies                                           companies      @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_roles_company_fkey")
+  user_profiles_user_roles_revoked_byTouser_profiles  user_profiles? @relation("user_roles_revoked_byTouser_profiles", fields: [revoked_by], references: [id], onUpdate: NoAction)
+  roles                                               roles          @relation(fields: [role_id], references: [id], onUpdate: NoAction, map: "user_roles_role_fkey")
+  user_profiles_user_roles_user_idTouser_profiles     user_profiles  @relation("user_roles_user_idTouser_profiles", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_roles_user_fkey")
+
+  @@unique([user_id, company_id, role_id], map: "user_roles_unique")
+  @@index([is_active], map: "idx_user_roles_active")
+  @@index([company_id], map: "idx_user_roles_company")
+  @@index([role_id], map: "idx_user_roles_role")
+  @@index([user_id], map: "idx_user_roles_user")
+  @@index([user_id, company_id], map: "idx_user_roles_user_company")
+  @@index([user_id, company_id, is_active], map: "idx_user_roles_user_company_active")
+  @@schema("public")
+}
+
+enum DocumentCategory {
+  IDENTITY
+  FINANCIAL
+  RIDESHARE
+  VEHICLE
+  PERSONAL
+  OTHER
+
+  @@schema("public")
 }
 
 enum DocumentType {
-  DRIVERS_LICENSE
+  LICENSE_FRONT
+  LICENSE_BACK
+  PASSPORT
+  BANK_STATEMENT
+  RIDESHARE_PROFILE
+  RIDESHARE_EARNINGS
+  INSURANCE_CERTIFICATE
   VEHICLE_REGISTRATION
-  VEHICLE_INSURANCE
   PROFILE_PHOTO
-  POLICE_CLEARANCE
+  OTHER
+
+  @@schema("public")
 }
 
-enum DocumentStatus {
-  PENDING
-  APPROVED
-  REJECTED
+/// This enum is commented in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+enum car_status {
+  ready
+  off_road
+  repairs
+  accident
+  sold
+  removed
+  retired
+  busy
+
+  @@schema("public")
 }
 
-enum PaymentMethod {
-  CASH
-  CARD
-  WALLET
+/// This enum is commented in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+enum collection_method {
+  charge_automatically
+  send_invoice
+
+  @@schema("public")
 }
 
-enum PayoutStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
+enum contract_type {
+  rent_to_own
+  lease
+  rental
+
+  @@schema("public")
 }
 
-// ───────────────────────────────────────────────────────────────
-// Driver
-// ───────────────────────────────────────────────────────────────
+enum credit_note_reason {
+  prepayment
+  overpayment
+  refund
+  goodwill
+  adjustment
+  other
 
-model Driver {
-  id                 String             @id @default(cuid())
-  email              String             @unique
-  phone              String             @unique
-  passwordHash       String
-  firstName          String
-  lastName           String
-  profilePhotoUrl    String?
-  dateOfBirth        DateTime?
-  status             DriverStatus       @default(PENDING)
-  availabilityStatus AvailabilityStatus @default(OFFLINE)
-  currentLatitude    Float?
-  currentLongitude   Float?
-  rating             Float              @default(0)
-  totalTrips         Int                @default(0)
-  refreshToken       String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-
-  vehicle   Vehicle?
-  documents Document[]
-  trips     Trip[]
-  earnings  Earning[]
-  payouts   Payout[]
-
-  @@map("drivers")
+  @@schema("public")
 }
 
-// ───────────────────────────────────────────────────────────────
-// Vehicle
-// ───────────────────────────────────────────────────────────────
+enum credit_note_status {
+  active
+  depleted
+  voided
+  expired
 
-model Vehicle {
-  id           String   @id @default(cuid())
-  driverId     String   @unique
-  make         String
-  model        String
-  year         Int
-  color        String
-  licensePlate String   @unique
-  capacity     Int      @default(4)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("vehicles")
+  @@schema("public")
 }
 
-// ───────────────────────────────────────────────────────────────
-// Documents
-// ───────────────────────────────────────────────────────────────
+enum driver_onboard_form_status {
+  pending
+  approved
+  rejected
+  converted
 
-model Document {
-  id           String         @id @default(cuid())
-  driverId     String
-  type         DocumentType
-  status       DocumentStatus @default(PENDING)
-  fileUrl      String
-  expiryDate   DateTime?
-  rejectedNote String?
-  reviewedAt   DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@unique([driverId, type])
-  @@map("documents")
+  @@schema("public")
 }
 
-// ───────────────────────────────────────────────────────────────
-// Trip
-// ───────────────────────────────────────────────────────────────
+enum intended_use {
+  personal
+  business
+  rideshare
+  mixed
 
-model Trip {
-  id                    String        @id @default(cuid())
-  driverId              String?
-  passengerId           String
-  status                TripStatus    @default(REQUESTED)
-  pickupAddress         String
-  pickupLatitude        Float
-  pickupLongitude       Float
-  dropoffAddress        String
-  dropoffLatitude       Float
-  dropoffLongitude      Float
-  estimatedDistance     Float?
-  estimatedDuration     Int?          // minutes
-  actualDistance        Float?
-  actualDuration        Int?          // minutes
-  baseFare              Float?
-  totalFare             Float?
-  paymentMethod         PaymentMethod @default(CASH)
-  passengerRating       Float?
-  driverRating          Float?
-  passengerNote         String?
-  driverNote            String?
-  cancellationReason    String?
-  cancelledBy           String?       // 'driver' | 'passenger' | 'system'
-  requestedAt           DateTime      @default(now())
-  acceptedAt            DateTime?
-  driverArrivedAt       DateTime?
-  startedAt             DateTime?
-  completedAt           DateTime?
-  cancelledAt           DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-
-  driver  Driver?  @relation(fields: [driverId], references: [id])
-  earning Earning?
-
-  @@map("trips")
+  @@schema("public")
 }
 
-// ───────────────────────────────────────────────────────────────
-// Earning
-// ───────────────────────────────────────────────────────────────
+/// This enum is commented in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+enum invoice_status {
+  draft
+  open
+  paid
+  uncollectible
+  void
+  overdue
+  partial
 
-model Earning {
-  id            String   @id @default(cuid())
-  driverId      String
-  tripId        String   @unique
-  grossAmount   Float
-  platformFee   Float
-  netAmount     Float
-  currency      String   @default("AUD")
-  isPaid        Boolean  @default(false)
-  paidAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  driver Driver @relation(fields: [driverId], references: [id])
-  trip   Trip   @relation(fields: [tripId], references: [id])
-
-  @@map("earnings")
+  @@schema("public")
 }
 
-// ───────────────────────────────────────────────────────────────
-// Payout
-// ───────────────────────────────────────────────────────────────
+enum notification_method {
+  phone_call
+  sms
+  whatsapp
+  email
+  other
 
-model Payout {
-  id            String       @id @default(cuid())
-  driverId      String
-  amount        Float
-  currency      String       @default("AUD")
-  status        PayoutStatus @default(PENDING)
-  bankAccountId String?
-  reference     String?
-  processedAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  @@schema("public")
+}
 
-  driver Driver @relation(fields: [driverId], references: [id])
+/// This enum is commented in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+enum payment_status {
+  require_payment_method
+  require_confirmation
+  require_action
+  processing
+  succeeded
+  canceled
+  pending
+  failed
+  declined
 
-  @@map("payouts")
+  @@schema("public")
+}
+
+/// This enum is commented in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+enum price_category {
+  car_repayment
+  all_inclusive
+  insurance
+  balloon_payment
+  registration_ctp
+
+  @@schema("public")
+}
+
+enum pricing_plan_interval {
+  day
+  week
+  month
+  year
+
+  @@schema("public")
+}
+
+enum pricing_type {
+  one_time
+  recurring
+
+  @@schema("public")
+}
+
+enum subscription_status {
+  trialing
+  active
+  canceled
+  incomplete
+  incomplete_expired
+  past_due
+  unpaid
+  paused
+
+  @@schema("public")
+}
+
+// ─── Driver Requests (Tickets) ───────────────────────────────────────────────
+
+enum driver_request_status {
+  new
+  in_progress
+  blocked
+  resolved
+  closed
+
+  @@schema("public")
+}
+
+enum driver_request_severity {
+  low
+  medium
+  high
+  critical
+
+  @@schema("public")
+}
+
+model driver_request_categories {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                 @default(now()) @db.Timestamptz(6)
+  owner_company_id String                   @db.Uuid
+  name             String                   @db.VarChar(100)
+  description      String?
+  default_severity driver_request_severity  @default(medium)
+  is_active        Boolean                  @default(true)
+  companies        companies                @relation(fields: [owner_company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  driver_requests  driver_requests[]
+
+  @@index([owner_company_id], map: "idx_driver_req_categories_company")
+  @@index([is_active], map: "idx_driver_req_categories_active")
+  @@schema("public")
+}
+
+model driver_requests {
+  id               String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                     @default(now()) @db.Timestamptz(6)
+  owner_company_id String                       @db.Uuid
+  driver_id        String                       @db.Uuid
+  category_id      String                       @db.Uuid
+  title            String                       @db.VarChar(255)
+  description      String?
+  severity         driver_request_severity
+  status           driver_request_status        @default(new)
+  assigned_to      String?                      @db.Uuid
+  resolved_at      DateTime?                    @db.Timestamptz(6)
+  resolved_by      String?                      @db.Uuid
+  resolve_comment  String?
+  companies        companies                    @relation(fields: [owner_company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  drivers          drivers                      @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  driver_request_categories driver_request_categories @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assigned_user    user_profiles?               @relation("driver_requests_assigned_to", fields: [assigned_to], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolved_user    user_profiles?               @relation("driver_requests_resolved_by", fields: [resolved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver_request_comments       driver_request_comments[]
+  driver_request_status_history driver_request_status_history[]
+
+  @@index([owner_company_id], map: "idx_driver_requests_company")
+  @@index([driver_id], map: "idx_driver_requests_driver")
+  @@index([status], map: "idx_driver_requests_status")
+  @@index([category_id], map: "idx_driver_requests_category")
+  @@schema("public")
+}
+
+model driver_request_comments {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  request_id        String          @db.Uuid
+  comment           String
+  is_staff_comment  Boolean         @default(false)
+  author_driver_id  String?         @db.Uuid
+  author_user_id    String?         @db.Uuid
+  driver_requests   driver_requests @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  author_driver     drivers?        @relation("driver_request_comments_driver", fields: [author_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  author_user       user_profiles?  @relation("driver_request_comments_user", fields: [author_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([request_id], map: "idx_driver_req_comments_request")
+  @@schema("public")
+}
+
+model driver_request_status_history {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at   DateTime              @default(now()) @db.Timestamptz(6)
+  request_id   String                @db.Uuid
+  from_status  driver_request_status?
+  to_status    driver_request_status
+  changed_by   String?               @db.Uuid
+  note         String?
+  duration_ms  BigInt?
+  driver_requests driver_requests   @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  changed_by_user user_profiles?    @relation("driver_request_status_history_user", fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([request_id], map: "idx_driver_req_history_request")
+  @@schema("public")
 }
