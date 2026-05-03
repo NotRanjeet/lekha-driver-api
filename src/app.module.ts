@@ -1,39 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './common/database/database.module';
 import { AuthModule } from './auth/auth.module';
-import { DriverModule } from './driver/driver.module';
-import { TripsModule } from './trips/trips.module';
-import { DocumentsModule } from './documents/documents.module';
-import { EarningsModule } from './earnings/earnings.module';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { DriverPortalModule } from './driver-portal/driver-portal.module';
+import { DriverRequestsModule } from './driver-requests/driver-requests.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    PrismaModule,
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+    DatabaseModule,
     AuthModule,
-    DriverModule,
-    TripsModule,
-    DocumentsModule,
-    EarningsModule,
-  ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_FILTER,
-      useClass: AllExceptionsFilter,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: TransformInterceptor,
-    },
+    DriverPortalModule,
+    DriverRequestsModule,
   ],
 })
 export class AppModule {}

@@ -2,63 +2,46 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import Decimal from 'decimal.js';
 
-async function bootstrap() {
+// Patch BigInt serialisation so JSON.stringify works on BigInt fields
+// (e.g. duration_ms in driver_request_status_history)
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
+// Patch Prisma Decimal serialisation
+(Decimal.prototype as any).toJSON = function () {
+  return this.toNumber();
+};
+
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
-  // ─── Global prefix ──────────────────────────────────────────────────────
-  app.setGlobalPrefix('api/v1');
+  const prefix = process.env.API_PREFIX ?? 'api';
+  app.setGlobalPrefix(prefix);
 
-  // ─── Validation ─────────────────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: { enableImplicitConversion: true },
+      forbidNonWhitelisted: true,
     }),
   );
 
-  // ─── CORS ───────────────────────────────────────────────────────────────
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-
-  // ─── Swagger ────────────────────────────────────────────────────────────
   const config = new DocumentBuilder()
-    .setTitle('Lekha Driver API')
+    .setTitle('Driver Portal API')
     .setDescription(
-      'Standalone REST API for the Lekha Driver Portal. ' +
-        'Handles authentication, trip management, documents, and earnings for drivers.',
+      'Self-service endpoints for drivers — profile, contracts, invoices, payments, and support requests.',
     )
     .setVersion('1.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
-      'access-token',
-    )
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
-      'refresh-token',
-    )
-    .addTag('Auth', 'Driver authentication endpoints')
-    .addTag('Driver', 'Driver profile and vehicle management')
-    .addTag('Trips', 'Trip lifecycle management')
-    .addTag('Documents', 'Driver document verification')
-    .addTag('Earnings', 'Earnings and payout history')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: { persistAuthorization: true },
-  });
+  SwaggerModule.setup(`${prefix}/docs`, app, document);
 
-  // ─── Start ──────────────────────────────────────────────────────────────
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  console.log(`🚀 Lekha Driver API running on http://localhost:${port}/api/v1`);
-  console.log(`📖 Swagger docs at http://localhost:${port}/api/docs`);
+  await app.listen(process.env.PORT ?? 3002);
 }
 
 bootstrap();
