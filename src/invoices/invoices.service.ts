@@ -139,7 +139,13 @@ export class InvoicesService {
 
   async getSummary(driverId: string): Promise<InvoicesSummaryDto> {
     const invoices = await this.prisma.invoice.findMany({
-      where: { driver_id: driverId },
+      where: {
+        OR: [
+          { driver_id: driverId },
+          { subscription: { driver_id: driverId } },
+        ],
+        invoice_status: { not: 'void' as any },
+      },
       orderBy: { created_at: 'desc' },
       select: {
         amount: true,
@@ -149,15 +155,11 @@ export class InvoicesService {
       },
     });
 
-    const total_invoiced = invoices
-      .filter((inv) => inv.invoice_status !== 'void')
-      .reduce((sum, inv) => sum + inv.amount, 0);
+    const total_invoiced = invoices.reduce((sum, inv) => sum + inv.amount, 0);
 
-    // Pending balance: sum of balance for invoices that are not paid or void
+    // Pending balance: sum of balance for invoices that are not paid
     const pending_balance = invoices
-      .filter(
-        (inv) => inv.invoice_status !== 'paid' && inv.invoice_status !== 'void',
-      )
+      .filter((inv) => inv.invoice_status !== 'paid')
       .reduce((sum, inv) => sum + inv.balance, 0);
 
     const last_invoice = invoices[0] ?? null;
