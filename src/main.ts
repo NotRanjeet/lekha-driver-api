@@ -100,7 +100,9 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: http://localhost:${port}/${prefix}`);
-  console.log(`Swagger docs available at: http://localhost:${port}/${prefix}/docs`);
+  console.log(
+    `Swagger docs available at: http://localhost:${port}/${prefix}/docs`,
+  );
 }
 
 // Only run in local development, not on Vercel
