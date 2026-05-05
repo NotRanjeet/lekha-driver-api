@@ -27,6 +27,14 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.client.invoice_payments;
   }
 
+  get credit_notes() {
+    return this.client.credit_notes;
+  }
+
+  get credit_applications() {
+    return this.client.credit_applications;
+  }
+
   get driver_requests() {
     return this.client.driver_requests;
   }
