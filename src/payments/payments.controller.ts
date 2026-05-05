@@ -1,8 +1,9 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
   ApiOkResponse,
+  ApiNotFoundResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -31,7 +32,7 @@ export class PaymentsController {
     return this.service.getSummary(driver.id);
   }
 
-  // ── GET /api/payments ─────────────────────────────────────────────────────
+  // ── GET /api/payments ─────────────────────────────────────────────────────────
 
   @Get()
   @ApiOkResponse({ type: [PaymentDto] })
@@ -39,5 +40,19 @@ export class PaymentsController {
   getPayments(@Req() req: Request): Promise<PaymentDto[]> {
     const driver = getDriverFromReq(req as any);
     return this.service.getPayments(driver.id);
+  }
+
+  // ── GET /api/payments/:id ─────────────────────────────────────────────────
+
+  @Get(':id')
+  @ApiOkResponse({ type: PaymentDto })
+  @ApiUnauthorizedResponse({ description: 'JWT invalid or driver not linked' })
+  @ApiNotFoundResponse({ description: 'Payment not found' })
+  getPayment(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<PaymentDto> {
+    const driver = getDriverFromReq(req as any);
+    return this.service.getPayment(driver.id, id);
   }
 }
