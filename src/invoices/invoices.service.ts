@@ -6,9 +6,17 @@ import { InvoiceDto, InvoicesSummaryDto } from './dto/invoice.dto';
 export class InvoicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getInvoices(driverId: string): Promise<InvoiceDto[]> {
+  async getInvoices(driverId: string, status?: string): Promise<InvoiceDto[]> {
     const invoices = await this.prisma.invoice.findMany({
-      where: { driver_id: driverId },
+      where: {
+        OR: [
+          { driver_id: driverId },
+          { subscription: { driver_id: driverId } },
+        ],
+        invoice_status: status
+          ? (status as any)
+          : { not: 'void' as any },
+      },
       orderBy: { created_at: 'desc' },
       include: {
         invoice_item: {

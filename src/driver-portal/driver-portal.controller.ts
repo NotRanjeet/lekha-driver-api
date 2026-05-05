@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   Body,
   UseGuards,
   Req,
@@ -16,6 +17,7 @@ import {
   ApiUnauthorizedResponse,
   ApiNotFoundResponse,
   ApiConflictResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { DriverJwtAuthGuard } from '../auth/guards/driver-jwt-auth.guard';
@@ -106,9 +108,18 @@ export class DriverPortalController {
   @UseGuards(DriverPortalGuard)
   @ApiOkResponse({ type: [DriverInvoiceSummary] })
   @ApiUnauthorizedResponse({ description: 'JWT invalid or driver not linked' })
-  getInvoices(@Req() req: Request): Promise<DriverInvoiceSummary[]> {
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description:
+      'Filter by invoice status (draft|open|paid|uncollectible|overdue|partial). Defaults to all non-void invoices.',
+  })
+  getInvoices(
+    @Req() req: Request,
+    @Query('status') status?: string,
+  ): Promise<DriverInvoiceSummary[]> {
     const driver = getDriverFromReq(req as any);
-    return this.service.getInvoices(driver.id);
+    return this.service.getInvoices(driver.id, status);
   }
 
   // ── GET /driver-portal/payments ───────────────────────────────────────────
