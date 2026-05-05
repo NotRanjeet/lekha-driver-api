@@ -10,7 +10,12 @@ export class PaymentsService {
     const payments = await this.prisma.invoice_payments.findMany({
       where: {
         is_reversed: false,
-        invoice: { driver_id: driverId },
+        invoice: {
+          OR: [
+            { driver_id: driverId },
+            { subscription: { driver_id: driverId } },
+          ],
+        },
       },
       orderBy: { payment_date: 'desc' },
       include: {
@@ -39,7 +44,12 @@ export class PaymentsService {
     const payments = await this.prisma.invoice_payments.findMany({
       where: {
         is_reversed: false,
-        invoice: { driver_id: driverId },
+        invoice: {
+          OR: [
+            { driver_id: driverId },
+            { subscription: { driver_id: driverId } },
+          ],
+        },
       },
       orderBy: { payment_date: 'desc' },
       select: { amount: true, payment_date: true },

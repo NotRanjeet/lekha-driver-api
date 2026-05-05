@@ -1,8 +1,9 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
   ApiOkResponse,
+  ApiNotFoundResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -39,5 +40,19 @@ export class InvoicesController {
   getInvoices(@Req() req: Request): Promise<InvoiceDto[]> {
     const driver = getDriverFromReq(req as any);
     return this.service.getInvoices(driver.id);
+  }
+
+  // ── GET /api/invoices/:id ─────────────────────────────────────────────────
+
+  @Get(':id')
+  @ApiOkResponse({ type: InvoiceDto })
+  @ApiUnauthorizedResponse({ description: 'JWT invalid or driver not linked' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  getInvoice(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<InvoiceDto> {
+    const driver = getDriverFromReq(req as any);
+    return this.service.getInvoice(driver.id, id);
   }
 }

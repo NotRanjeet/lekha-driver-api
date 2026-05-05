@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/database/prisma.service';
 import { InvoiceDto, InvoicesSummaryDto } from './dto/invoice.dto';
 
@@ -60,6 +60,73 @@ export class InvoicesService {
         reference_number: pmt.reference_number ?? null,
       })),
     }));
+  }
+
+  async getInvoice(driverId: string, invoiceId: string): Promise<InvoiceDto> {
+    const inv = await this.prisma.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        OR: [
+          { driver_id: driverId },
+          { subscription: { driver_id: driverId } },
+        ],
+      },
+      include: {
+        invoice_item: {
+          select: {
+            id: true,
+            description: true,
+            unit_amount: true,
+            quantity: true,
+            gst_percentage: true,
+          },
+        },
+        invoice_payments: {
+          where: { is_reversed: false },
+          select: {
+            id: true,
+            amount: true,
+            payment_date: true,
+            payment_method: true,
+            reference_number: true,
+          },
+        },
+      },
+    });
+
+    if (!inv) {
+      throw new NotFoundException(
+        'Invoice not found or does not belong to this driver',
+      );
+    }
+
+    return {
+      id: inv.id,
+      invoice_name: inv.invoice_name ?? null,
+      invoice_status: inv.invoice_status,
+      amount: inv.amount,
+      balance: inv.balance,
+      period_start: inv.period_start ?? null,
+      period_end: inv.period_end ?? null,
+      due_date: inv.due_date ?? null,
+      expected_payment_date: inv.expected_payment_date ?? null,
+      created_at: inv.created_at,
+      currency: inv.currency ?? null,
+      invoice_item: inv.invoice_item.map((item) => ({
+        id: Number(item.id),
+        description: item.description ?? null,
+        unit_amount: item.unit_amount,
+        quantity: item.quantity,
+        gst_percentage: item.gst_percentage ?? null,
+      })),
+      invoice_payments: inv.invoice_payments.map((pmt) => ({
+        id: pmt.id,
+        amount: pmt.amount,
+        payment_date: pmt.payment_date,
+        payment_method: pmt.payment_method ?? null,
+        reference_number: pmt.reference_number ?? null,
+      })),
+    };
   }
 
   async getSummary(driverId: string): Promise<InvoicesSummaryDto> {

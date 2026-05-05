@@ -328,7 +328,12 @@ export class DriverPortalService {
     const payments = await this.prisma.invoice_payments.findMany({
       where: {
         is_reversed: false,
-        invoice: { driver_id: driverId },
+        invoice: {
+          OR: [
+            { driver_id: driverId },
+            { subscription: { driver_id: driverId } },
+          ],
+        },
       },
       orderBy: { payment_date: 'desc' },
       include: {
@@ -357,7 +362,12 @@ export class DriverPortalService {
 
   async getSummary(driverId: string): Promise<DriverBalanceSummary> {
     const invoices = await this.prisma.invoice.findMany({
-      where: { driver_id: driverId },
+      where: {
+        OR: [
+          { driver_id: driverId },
+          { subscription: { driver_id: driverId } },
+        ],
+      },
       select: {
         amount: true,
         balance: true,
