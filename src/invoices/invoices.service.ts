@@ -141,7 +141,9 @@ export class InvoicesService {
       },
     });
 
-    const total_invoiced = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const total_invoiced = invoices
+      .filter((inv) => inv.invoice_status !== 'void')
+      .reduce((sum, inv) => sum + inv.amount, 0);
 
     // Pending balance: sum of balance for invoices that are not paid or void
     const pending_balance = invoices
