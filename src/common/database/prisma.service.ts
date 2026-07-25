@@ -51,6 +51,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.client.driver_request_status_history;
   }
 
+  get contract_documents() {
+    return this.client.contract_documents;
+  }
+
   async $transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
     return this.client.$transaction(fn);
   }
