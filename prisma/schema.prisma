@@ -7,7 +7,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["auth", "public"]
+  schemas   = ["auth", "payments", "public"]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -229,6 +229,9 @@ model car_files {
   user_profiles    user_profiles? @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   cars             cars           @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([owner_company_id], map: "idx_car_files_owner_company")
+  @@index([owner_user_id], map: "idx_car_files_owner_user")
+  @@index([parent_id], map: "idx_car_files_parent")
   @@schema("public")
 }
 
@@ -269,6 +272,7 @@ model cars {
   status                        car_status?            @default(ready)
   owner_organisation_id         String?                @db.Uuid
   offloaded                     Boolean?               @default(dbgenerated("((status = 'removed'::car_status) OR (status = 'sold'::car_status) OR (status = 'retired'::car_status))"))
+  car_files                     car_files[]
   car_insurance                 car_insurance[]
   car_lease                     car_lease[]
   car_loan_contracts            car_loan_contracts?
@@ -277,7 +281,6 @@ model cars {
   car_penalties                 car_penalties[]
   car_prices                    car_prices[]
   car_reminders                 car_reminders[]
-  car_files                     car_files[]
   fleets                        fleets?                @relation(fields: [fleet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   companies                     companies?             @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   organisation                  organisation?          @relation(fields: [owner_organisation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -292,45 +295,53 @@ model cars {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model companies {
-  id                    String                 @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
-  name                  String?
-  abn                   String?
-  created_at            DateTime?              @default(now()) @db.Timestamptz(6)
-  owner_user_id         String?                @db.Uuid
-  address               String?
-  mobile                String?
-  rental_contract_url   String?
-  toll_declaration_form String?
-  car_lease             car_lease[]
-  car_log_book          car_log_book[]
-  car_odometer          car_odometer[]
-  car_prices            car_prices[]
-  car_reminders         car_reminders[]
-  car_files             car_files[]
-  cars                  cars[]
-  contract_return_info  contract_return_info[]
-  contracts             contracts[]
-  credit_notes          credit_notes[]
-  drivers               drivers[]
-  file_uploads          file_uploads[]
-  fleets                fleets[]
-  insurance_files       insurance_files[]
-  invoice               invoice[]
-  loan_contracts        loan_contracts[]
-  loan_files            loan_files[]
-  organisation          organisation[]
-  payment_intent        payment_intent[]
-  payment_links         payment_links[]
-  permission_audit_log  permission_audit_log[]
-  roles                 roles[]
-  subscription          subscription[]
-  subscription_item     subscription_item[]
-  user_companies        user_companies[]
-  user_permissions      user_permissions[]
-  user_profiles         user_profiles[]
-  user_roles            user_roles[]
-  driver_request_categories driver_request_categories[]
-  driver_requests       driver_requests[]
+  id                         String                       @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  name                       String?
+  abn                        String?
+  created_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
+  owner_user_id              String?                      @db.Uuid
+  address                    String?
+  mobile                     String?
+  rental_contract_url        String?
+  toll_declaration_form      String?
+  company_payment_options    company_payment_options[]
+  invoice_payment_attempts   invoice_payment_attempts[]
+  payment_agreements         payment_agreements[]
+  payment_method_setups      payment_method_setups[]
+  payment_provider_customers payment_provider_customers[]
+  payment_state_events       payment_state_events[]
+  car_files                  car_files[]
+  car_lease                  car_lease[]
+  car_log_book               car_log_book[]
+  car_odometer               car_odometer[]
+  car_prices                 car_prices[]
+  car_reminders              car_reminders[]
+  cars                       cars[]
+  contract_documents         contract_documents[]
+  contract_return_info       contract_return_info[]
+  contracts                  contracts[]
+  credit_notes               credit_notes[]
+  driver_onboard_forms       driver_onboard_forms[]
+  driver_request_categories  driver_request_categories[]
+  driver_requests            driver_requests[]
+  drivers                    drivers[]
+  file_uploads               file_uploads[]
+  fleets                     fleets[]
+  insurance_files            insurance_files[]
+  invoice                    invoice[]
+  loan_contracts             loan_contracts[]
+  loan_files                 loan_files[]
+  organisation               organisation[]
+  payment_intent             payment_intent[]
+  payment_links              payment_links[]
+  permission_audit_log       permission_audit_log[]
+  roles                      roles[]
+  subscription               subscription[]
+  subscription_item          subscription_item[]
+  user_companies             user_companies[]
+  user_permissions           user_permissions[]
+  user_profiles              user_profiles[]
+  user_roles                 user_roles[]
 
   @@schema("public")
 }
@@ -367,38 +378,41 @@ model contract_return_info {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model contracts {
-  created_at             DateTime              @default(now()) @db.Timestamptz(6)
-  owner_company_id       String                @db.Uuid
-  owner_user_id          String                @db.Uuid
-  type                   contract_type
-  driver_id              String                @db.Uuid
-  start_date             DateTime              @db.Timestamptz(6)
-  end_date               DateTime?             @db.Timestamptz(6)
-  length_in_weeks        Decimal               @db.Decimal
-  intended_use           intended_use?
-  allowed_kms_per_week   Decimal?              @db.Decimal
-  name                   String
-  deposit_received       Float?                @db.Real
-  car_id                 String                @db.Uuid
-  start_odometer         Int?
-  id                     String                @id(map: "contract_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stripe_payment_link    String?
-  stripe_subscription_id String?
-  price_id               String                @db.Uuid
-  fuel_level             String?
-  stripe_customer_id     String?
-  preferred_payment_day  String?               @db.VarChar(10)
-  office_notes           String?
-  manager_id             String?               @db.VarChar(50)
-  is_manual_payment      Boolean               @default(false)
-  contract_return_info   contract_return_info?
-  cars                   cars                  @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  drivers                drivers               @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  companies              companies             @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_profiles          user_profiles         @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  car_prices             car_prices            @relation(fields: [price_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  payment_links          payment_links[]
-  subscription           subscription[]
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  owner_company_id         String                     @db.Uuid
+  owner_user_id            String                     @db.Uuid
+  type                     contract_type
+  driver_id                String                     @db.Uuid
+  start_date               DateTime                   @db.Timestamptz(6)
+  end_date                 DateTime?                  @db.Timestamptz(6)
+  length_in_weeks          Decimal                    @db.Decimal
+  intended_use             intended_use?
+  allowed_kms_per_week     Decimal?                   @db.Decimal
+  name                     String
+  deposit_received         Float?                     @db.Real
+  car_id                   String                     @db.Uuid
+  start_odometer           Int?
+  id                       String                     @id(map: "contract_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stripe_payment_link      String?
+  stripe_subscription_id   String?
+  price_id                 String                     @db.Uuid
+  fuel_level               String?
+  stripe_customer_id       String?
+  preferred_payment_day    String?                    @db.VarChar(10)
+  office_notes             String?
+  manager_id               String?                    @db.VarChar(50)
+  is_manual_payment        Boolean                    @default(false)
+  invoice_payment_attempts invoice_payment_attempts[]
+  payment_agreements       payment_agreements[]
+  contract_documents       contract_documents[]
+  contract_return_info     contract_return_info?
+  cars                     cars                       @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drivers                  drivers                    @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                companies                  @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles            user_profiles              @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  car_prices               car_prices                 @relation(fields: [price_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_links            payment_links[]
+  subscription             subscription[]
 
   @@index([driver_id], map: "contracts_driver_id_index")
   @@index([owner_company_id], map: "contracts_owner_company_id_index")
@@ -566,6 +580,7 @@ model driver_onboard_forms {
   converted_by                                                   String?                    @db.Uuid
   driver_license_state                                           String?                    @db.VarChar(3)
   user_profiles_driver_onboard_forms_approved_byTouser_profiles  user_profiles?             @relation("driver_onboard_forms_approved_byTouser_profiles", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                                                      companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   user_profiles_driver_onboard_forms_converted_byTouser_profiles user_profiles?             @relation("driver_onboard_forms_converted_byTouser_profiles", fields: [converted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user_profiles_driver_onboard_forms_rejected_byTouser_profiles  user_profiles?             @relation("driver_onboard_forms_rejected_byTouser_profiles", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -615,55 +630,59 @@ model driver_profiles {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model drivers {
-  id                     String                 @id(map: "car_drivers_pkey") @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
-  created_at             DateTime               @default(now()) @db.Timestamptz(6)
-  owner_user_id          String                 @db.Uuid
-  first_name             String
-  last_name              String
-  license_number         String?
-  dob                    DateTime?              @db.Timestamptz(6)
-  mobile                 String?
-  address_line_one       String?
-  address_line_two       String?
-  address_suburb         String?
-  address_state          String?
-  address_post_code      String?
-  owner_company_id       String                 @db.Uuid
-  license_front_photo    String?
-  license_back_photo     String?
-  subscription_id        String?
-  emergency_name         String?
-  emergency_phone        String?
-  emergency_relation     String?
-  license_state          String?
-  license_country        String?
-  license_expiry         DateTime?              @db.Timestamptz(6)
-  stripe_customer_id     String?
-  email                  String?
-  stripe_setup_link      String?
-  address_country        String?
-  driver_profile_id      String?                @db.Uuid
-  card_last_four         String?                @db.VarChar(4)
-  card_expiry_month      Int?                   @db.SmallInt
-  card_expiry_year       Int?                   @db.SmallInt
-  card_setup_at          DateTime?              @db.Timestamptz(6)
-  payway_customer_number String?                @unique @db.VarChar(20)
-  business_name          String?                @db.VarChar(255)
-  business_abn           String?                @db.VarChar(11)
-  auth_user_id           String?                @unique @db.Uuid
-  invite_token           String?                @unique @db.Uuid
-  invite_token_expires_at DateTime?              @db.Timestamptz(6)
-  car_lease              car_lease[]
-  contract_return_info   contract_return_info[]
-  contracts              contracts[]
-  credit_notes           credit_notes[]
-  driver_profiles        driver_profiles?       @relation(fields: [driver_profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "driver_profile_linked_fkey")
-  companies              companies              @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  invoice                invoice[]
-  payment_links          payment_links[]
-  subscription           subscription[]
-  driver_requests        driver_requests[]
-  driver_request_comments_authored driver_request_comments[] @relation("driver_request_comments_driver")
+  id                               String                       @id(map: "car_drivers_pkey") @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  created_at                       DateTime                     @default(now()) @db.Timestamptz(6)
+  owner_user_id                    String                       @db.Uuid
+  first_name                       String
+  last_name                        String
+  license_number                   String?
+  dob                              DateTime?                    @db.Timestamptz(6)
+  mobile                           String?
+  address_line_one                 String?
+  address_line_two                 String?
+  address_suburb                   String?
+  address_state                    String?
+  address_post_code                String?
+  owner_company_id                 String                       @db.Uuid
+  license_front_photo              String?
+  license_back_photo               String?
+  subscription_id                  String?
+  emergency_name                   String?
+  emergency_phone                  String?
+  emergency_relation               String?
+  license_state                    String?
+  license_country                  String?
+  license_expiry                   DateTime?                    @db.Timestamptz(6)
+  stripe_customer_id               String?
+  email                            String?
+  stripe_setup_link                String?
+  address_country                  String?
+  driver_profile_id                String?                      @db.Uuid
+  card_last_four                   String?                      @db.VarChar(4)
+  card_expiry_month                Int?                         @db.SmallInt
+  card_expiry_year                 Int?                         @db.SmallInt
+  card_setup_at                    DateTime?                    @db.Timestamptz(6)
+  payway_customer_number           String?                      @unique @db.VarChar(20)
+  business_name                    String?                      @db.VarChar(255)
+  business_abn                     String?                      @db.VarChar(11)
+  invite_token                     String?                      @unique @db.Uuid
+  invite_token_expires_at          DateTime?                    @db.Timestamptz(6)
+  auth_user_id                     String?                      @unique @db.Uuid
+  invoice_payment_attempts         invoice_payment_attempts[]
+  payment_agreements               payment_agreements[]
+  payment_method_setups            payment_method_setups[]
+  payment_provider_customers       payment_provider_customers[]
+  car_lease                        car_lease[]
+  contract_return_info             contract_return_info[]
+  contracts                        contracts[]
+  credit_notes                     credit_notes[]
+  driver_request_comments_authored driver_request_comments[]    @relation("driver_request_comments_driver")
+  driver_requests                  driver_requests[]
+  driver_profiles                  driver_profiles?             @relation(fields: [driver_profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "driver_profile_linked_fkey")
+  companies                        companies                    @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice                          invoice[]
+  payment_links                    payment_links[]
+  subscription                     subscription[]
 
   @@index([driver_profile_id], map: "fki_c")
   @@index([auth_user_id], map: "idx_drivers_auth_user_id")
@@ -742,52 +761,66 @@ model insurance_providers {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invoice {
-  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at             DateTime              @default(now()) @db.Timestamptz(6)
-  subscription_id        String?               @db.Uuid
-  application_fee_amount Float?                @db.Real
-  currency               String?
-  days_until_due         Int?
-  due_date               DateTime?             @db.Timestamptz(6)
-  metadata               Json?
-  owner_company_id       String?               @db.Uuid
-  owner_user_id          String?               @db.Uuid
-  customer_abn           String?
-  customer_address       String?
-  customer_business_name String?
-  customer_city          String?
-  customer_email         String?
-  customer_name          String?
-  customer_phone         String?
-  customer_post_code     String?
-  customer_state         String?
-  invoice_name           String?
-  invoice_status         invoice_status        @default(draft)
-  period_end             DateTime?             @db.Timestamptz(6)
-  period_start           DateTime?             @db.Timestamptz(6)
-  comments               String?
-  marked_as_paid_on      DateTime?             @db.Timestamptz(6)
-  expected_payment_date  DateTime?             @db.Timestamptz(6)
-  office_notes           String?
-  is_manual_payment      Boolean?              @default(false)
-  amount                 Int                   @default(0)
-  balance                Int                   @default(0)
-  voided_at              DateTime?             @db.Timestamptz(6)
-  driver_id              String?               @db.Uuid
-  credit_applications    credit_applications[]
-  drivers                drivers?              @relation(fields: [driver_id], references: [id])
-  companies              companies?            @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_profiles          user_profiles?        @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  subscription           subscription?         @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  invoice_item           invoice_item[]
-  invoice_payments       invoice_payments[]
-  payment_intent         payment_intent[]
+  id                                                                                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                                                         DateTime                   @default(now()) @db.Timestamptz(6)
+  subscription_id                                                                    String?                    @db.Uuid
+  application_fee_amount                                                             Float?                     @db.Real
+  currency                                                                           String?
+  days_until_due                                                                     Int?
+  due_date                                                                           DateTime?                  @db.Timestamptz(6)
+  metadata                                                                           Json?
+  owner_company_id                                                                   String?                    @db.Uuid
+  owner_user_id                                                                      String?                    @db.Uuid
+  customer_abn                                                                       String?
+  customer_address                                                                   String?
+  customer_business_name                                                             String?
+  customer_city                                                                      String?
+  customer_email                                                                     String?
+  customer_name                                                                      String?
+  customer_phone                                                                     String?
+  customer_post_code                                                                 String?
+  customer_state                                                                     String?
+  invoice_name                                                                       String?
+  invoice_status                                                                     invoice_status             @default(draft)
+  period_end                                                                         DateTime?                  @db.Timestamptz(6)
+  period_start                                                                       DateTime?                  @db.Timestamptz(6)
+  comments                                                                           String?
+  marked_as_paid_on                                                                  DateTime?                  @db.Timestamptz(6)
+  expected_payment_date                                                              DateTime?                  @db.Timestamptz(6)
+  office_notes                                                                       String?
+  is_manual_payment                                                                  Boolean?                   @default(false)
+  amount                                                                             Int                        @default(0)
+  balance                                                                            Int                        @default(0)
+  voided_at                                                                          DateTime?                  @db.Timestamptz(6)
+  driver_id                                                                          String?                    @db.Uuid
+  collection_status                                                                  collection_status?
+  provider_payment_method_id_snapshot                                                String?                    @db.Uuid
+  payment_method_setup_id_snapshot                                                   String?                    @db.Uuid
+  payment_agreement_id_snapshot                                                      String?                    @db.Uuid
+  last_payment_attempt_id                                                            String?                    @db.Uuid
+  last_payment_attempt_at                                                            DateTime?                  @db.Timestamptz(6)
+  invoice_payment_attempts_invoice_payment_attempts_invoice_idToinvoice              invoice_payment_attempts[] @relation("invoice_payment_attempts_invoice_idToinvoice")
+  credit_applications                                                                credit_applications[]
+  drivers                                                                            drivers?                   @relation(fields: [driver_id], references: [id])
+  invoice_payment_attempts_invoice_last_payment_attempt_idToinvoice_payment_attempts invoice_payment_attempts?  @relation("invoice_last_payment_attempt_idToinvoice_payment_attempts", fields: [last_payment_attempt_id], references: [id], onUpdate: NoAction, map: "invoice_last_payment_attempt_fkey")
+  companies                                                                          companies?                 @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles                                                                      user_profiles?             @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_agreements                                                                 payment_agreements?        @relation(fields: [payment_agreement_id_snapshot], references: [id], onUpdate: NoAction, map: "invoice_payment_agreement_snapshot_fkey")
+  payment_method_setups                                                              payment_method_setups?     @relation(fields: [payment_method_setup_id_snapshot], references: [id], onUpdate: NoAction, map: "invoice_payment_method_setup_snapshot_fkey")
+  provider_payment_methods                                                           provider_payment_methods?  @relation(fields: [provider_payment_method_id_snapshot], references: [id], onUpdate: NoAction, map: "invoice_provider_method_snapshot_fkey")
+  subscription                                                                       subscription?              @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice_item                                                                       invoice_item[]
+  invoice_payments                                                                   invoice_payments[]
+  payment_intent                                                                     payment_intent[]
 
   @@index([driver_id], map: "idx_invoice_driver_id")
   @@index([expected_payment_date], map: "idx_invoice_expected_payment_date")
   @@index([invoice_status, expected_payment_date], map: "idx_invoice_status_expected_date")
   @@index([owner_company_id], map: "invoice_owner_company_id_index")
   @@index([subscription_id], map: "invoice_subscription_id_index")
+  @@index([collection_status], map: "idx_invoice_collection_status")
+  @@index([last_payment_attempt_id], map: "idx_invoice_last_payment_attempt")
+  @@index([provider_payment_method_id_snapshot], map: "idx_invoice_provider_method_snapshot")
   @@schema("public")
 }
 
@@ -934,53 +967,87 @@ model payment_frequency {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model payment_intent {
-  id                   String          @id(map: "payment_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at           DateTime        @default(now()) @db.Timestamptz(6)
-  invoice_id           String?         @db.Uuid
-  payment_status       payment_status?
-  currency             String
-  amount               Int
-  description          String?
-  canceled_at          DateTime?       @db.Timestamptz(6)
-  amount_received      Int?
-  applicaiton_fee      Int?
-  owner_company_id     String?         @db.Uuid
-  canceled_reason      String?
-  receipt_id           String?
-  receipt_system       String?
-  transaction_metadata Json?
-  idempotency_key      String?         @unique(map: "payment_intent_idempotency_key_unique")
-  attempt_reference    String?
-  invoice              invoice?        @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_invoice_id_fkey")
-  companies            companies?      @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_owner_company_id_fkey")
+  id                         String                    @id(map: "payment_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                 DateTime                  @default(now()) @db.Timestamptz(6)
+  invoice_id                 String?                   @db.Uuid
+  payment_status             payment_status?
+  currency                   String
+  amount                     Int
+  description                String?
+  canceled_at                DateTime?                 @db.Timestamptz(6)
+  amount_received            Int?
+  applicaiton_fee            Int?
+  owner_company_id           String?                   @db.Uuid
+  canceled_reason            String?
+  receipt_id                 String?
+  receipt_system             String?
+  transaction_metadata       Json?
+  idempotency_key            String?                   @unique(map: "payment_intent_idempotency_key_unique")
+  attempt_reference          String?
+  provider_payment_method_id String?                   @db.Uuid
+  payment_method_setup_id    String?                   @db.Uuid
+  payment_agreement_id       String?                   @db.Uuid
+  invoice_payment_attempt_id String?                   @db.Uuid
+  invoice_payment_attempts   invoice_payment_attempts? @relation(fields: [invoice_payment_attempt_id], references: [id], onUpdate: NoAction, map: "payment_intent_invoice_payment_attempt_fkey")
+  payment_agreements         payment_agreements?       @relation(fields: [payment_agreement_id], references: [id], onUpdate: NoAction, map: "payment_intent_payment_agreement_fkey")
+  payment_method_setups      payment_method_setups?    @relation(fields: [payment_method_setup_id], references: [id], onUpdate: NoAction, map: "payment_intent_payment_method_setup_fkey")
+  provider_payment_methods   provider_payment_methods? @relation(fields: [provider_payment_method_id], references: [id], onUpdate: NoAction, map: "payment_intent_provider_method_fkey")
+  invoice                    invoice?                  @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_invoice_id_fkey")
+  companies                  companies?                @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_owner_company_id_fkey")
 
   @@unique([invoice_id, attempt_reference], map: "payment_intent_invoice_id_attempt_reference_unique")
+  @@index([payment_agreement_id], map: "idx_payment_intent_agreement")
+  @@index([invoice_payment_attempt_id], map: "idx_payment_intent_attempt")
+  @@index([payment_method_setup_id], map: "idx_payment_intent_method_setup")
+  @@index([provider_payment_method_id], map: "idx_payment_intent_provider_method")
   @@schema("public")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payment_links {
-  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  link_id            String     @unique @db.Uuid
-  company_id         String     @db.Uuid
-  driver_id          String?    @db.Uuid
-  contract_id        String?    @db.Uuid
-  expires_at         DateTime   @db.Timestamptz(6)
-  is_active          Boolean    @default(true)
-  is_single_use      Boolean    @default(false)
-  usage_count        Int        @default(0)
-  max_usage_count    Int        @default(1)
-  passcode_hash      String?
-  metadata           Json       @default("{}")
-  created_at         DateTime   @default(now()) @db.Timestamptz(6)
-  created_by_user_id String?    @db.Uuid
-  last_used_at       DateTime?  @db.Timestamptz(6)
-  deactivated_at     DateTime?  @db.Timestamptz(6)
-  companies          companies  @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "payment_links_company_fk")
-  contracts          contracts? @relation(fields: [contract_id], references: [id], onUpdate: NoAction, map: "payment_links_contract_fk")
-  drivers            drivers?   @relation(fields: [driver_id], references: [id], onUpdate: NoAction, map: "payment_links_driver_fk")
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  link_id                    String                    @unique @db.Uuid
+  company_id                 String                    @db.Uuid
+  driver_id                  String?                   @db.Uuid
+  contract_id                String?                   @db.Uuid
+  expires_at                 DateTime                  @db.Timestamptz(6)
+  is_active                  Boolean                   @default(true)
+  is_single_use              Boolean                   @default(false)
+  usage_count                Int                       @default(0)
+  max_usage_count            Int                       @default(1)
+  passcode_hash              String?
+  metadata                   Json                      @default("{}")
+  created_at                 DateTime                  @default(now()) @db.Timestamptz(6)
+  created_by_user_id         String?                   @db.Uuid
+  last_used_at               DateTime?                 @db.Timestamptz(6)
+  deactivated_at             DateTime?                 @db.Timestamptz(6)
+  purpose                    String?                   @db.VarChar(50)
+  provider_payment_method_id String?                   @db.Uuid
+  payment_method_setup_id    String?                   @db.Uuid
+  payment_agreement_id       String?                   @db.Uuid
+  setup_status               String?                   @db.VarChar(50)
+  provider_session_id        String?
+  provider_setup_intent_id   String?
+  opened_at                  DateTime?                 @db.Timestamptz(6)
+  submitted_at               DateTime?                 @db.Timestamptz(6)
+  completed_at               DateTime?                 @db.Timestamptz(6)
+  failed_at                  DateTime?                 @db.Timestamptz(6)
+  last_error_code            String?
+  last_error_message         String?
+  companies                  companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "payment_links_company_fk")
+  contracts                  contracts?                @relation(fields: [contract_id], references: [id], onUpdate: NoAction, map: "payment_links_contract_fk")
+  drivers                    drivers?                  @relation(fields: [driver_id], references: [id], onUpdate: NoAction, map: "payment_links_driver_fk")
+  payment_agreements         payment_agreements?       @relation(fields: [payment_agreement_id], references: [id], onUpdate: NoAction, map: "payment_links_payment_agreement_fkey")
+  payment_method_setups      payment_method_setups?    @relation(fields: [payment_method_setup_id], references: [id], onUpdate: NoAction, map: "payment_links_payment_method_setup_fkey")
+  provider_payment_methods   provider_payment_methods? @relation(fields: [provider_payment_method_id], references: [id], onUpdate: NoAction, map: "payment_links_provider_method_fkey")
 
   @@index([expires_at], map: "idx_payment_links_expires_at")
+  @@index([company_id, contract_id, is_active], map: "idx_payment_links_company_contract_active")
+  @@index([expires_at, is_active], map: "idx_payment_links_expires_active")
+  @@index([payment_agreement_id], map: "idx_payment_links_payment_agreement")
+  @@index([payment_method_setup_id], map: "idx_payment_links_payment_method_setup")
+  @@index([provider_payment_method_id], map: "idx_payment_links_provider_method")
+  @@index([setup_status], map: "idx_payment_links_setup_status")
   @@schema("public")
 }
 
@@ -1089,33 +1156,35 @@ model roles {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model subscription {
-  id                                                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at                                           DateTime            @default(now()) @db.Timestamptz(6)
-  contract_id                                          String?             @db.Uuid
+  id                                                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                           DateTime                   @default(now()) @db.Timestamptz(6)
+  contract_id                                          String?                    @db.Uuid
   external_id                                          String?
   status                                               subscription_status
   metadata                                             Json?
-  current_period_start                                 DateTime?           @db.Timestamptz(6)
-  current_period_end                                   DateTime?           @db.Timestamptz(6)
-  cancel_at                                            DateTime?           @db.Timestamptz(6)
-  canceled_at                                          DateTime?           @db.Timestamptz(6)
-  trial_start                                          DateTime?           @db.Timestamptz(6)
-  trial_end                                            DateTime?           @db.Timestamptz(6)
+  current_period_start                                 DateTime?                  @db.Timestamptz(6)
+  current_period_end                                   DateTime?                  @db.Timestamptz(6)
+  cancel_at                                            DateTime?                  @db.Timestamptz(6)
+  canceled_at                                          DateTime?                  @db.Timestamptz(6)
+  trial_start                                          DateTime?                  @db.Timestamptz(6)
+  trial_end                                            DateTime?                  @db.Timestamptz(6)
   stripe_setup_link                                    String?
-  billed_to                                            DateTime?           @db.Timestamptz(6)
-  start_at                                             DateTime?           @db.Timestamptz(6)
-  pause_collection_resumes_at                          DateTime?           @db.Timestamptz(6)
-  owner_company_id                                     String              @db.Uuid
-  owner_user_id                                        String              @db.Uuid
-  car_id                                               String?             @db.Uuid
-  driver_id                                            String?             @db.Uuid
+  billed_to                                            DateTime?                  @db.Timestamptz(6)
+  start_at                                             DateTime?                  @db.Timestamptz(6)
+  pause_collection_resumes_at                          DateTime?                  @db.Timestamptz(6)
+  owner_company_id                                     String                     @db.Uuid
+  owner_user_id                                        String                     @db.Uuid
+  car_id                                               String?                    @db.Uuid
+  driver_id                                            String?                    @db.Uuid
+  invoice_payment_attempts                             invoice_payment_attempts[]
+  payment_agreements                                   payment_agreements[]
   invoice                                              invoice[]
-  invoice_item_invoice_item_subscriptionTosubscription invoice_item[]      @relation("invoice_item_subscriptionTosubscription")
-  cars                                                 cars?               @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  contracts                                            contracts?          @relation(fields: [contract_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  drivers                                              drivers?            @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  companies                                            companies           @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "subscription_onwer_company_id_fkey")
-  user_profiles                                        user_profiles       @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice_item_invoice_item_subscriptionTosubscription invoice_item[]             @relation("invoice_item_subscriptionTosubscription")
+  cars                                                 cars?                      @relation(fields: [car_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contracts                                            contracts?                 @relation(fields: [contract_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drivers                                              drivers?                   @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                                            companies                  @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "subscription_onwer_company_id_fkey")
+  user_profiles                                        user_profiles              @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   subscription_item                                    subscription_item[]
 
   @@index([contract_id], map: "subscription_contract_id_index")
@@ -1191,47 +1260,48 @@ model user_permissions {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model user_profiles {
-  created_at                                                            DateTime?               @default(now()) @db.Timestamptz(6)
+  created_at                                                            DateTime?                       @default(now()) @db.Timestamptz(6)
   firstName                                                             String?
   lastName                                                              String?
-  id                                                                    String                  @id @db.Uuid
-  selected_company_id                                                   String?                 @db.Uuid
+  id                                                                    String                          @id @db.Uuid
+  selected_company_id                                                   String?                         @db.Uuid
+  car_files                                                             car_files[]
   car_lease                                                             car_lease[]
   car_log_book                                                          car_log_book[]
   car_odometer                                                          car_odometer[]
   car_prices                                                            car_prices[]
-  car_files                                                             car_files[]
+  contract_documents                                                    contract_documents[]
   contract_return_info                                                  contract_return_info[]
   contracts                                                             contracts[]
-  credit_applications_credit_applications_applied_byTouser_profiles     credit_applications[]   @relation("credit_applications_applied_byTouser_profiles")
-  credit_applications_credit_applications_reversed_byTouser_profiles    credit_applications[]   @relation("credit_applications_reversed_byTouser_profiles")
+  credit_applications_credit_applications_applied_byTouser_profiles     credit_applications[]           @relation("credit_applications_applied_byTouser_profiles")
+  credit_applications_credit_applications_reversed_byTouser_profiles    credit_applications[]           @relation("credit_applications_reversed_byTouser_profiles")
   credit_note_audit_log                                                 credit_note_audit_log[]
-  credit_notes_credit_notes_owner_user_idTouser_profiles                credit_notes[]          @relation("credit_notes_owner_user_idTouser_profiles")
-  credit_notes_credit_notes_voided_byTouser_profiles                    credit_notes[]          @relation("credit_notes_voided_byTouser_profiles")
-  driver_onboard_forms_driver_onboard_forms_approved_byTouser_profiles  driver_onboard_forms[]  @relation("driver_onboard_forms_approved_byTouser_profiles")
-  driver_onboard_forms_driver_onboard_forms_converted_byTouser_profiles driver_onboard_forms[]  @relation("driver_onboard_forms_converted_byTouser_profiles")
-  driver_onboard_forms_driver_onboard_forms_rejected_byTouser_profiles  driver_onboard_forms[]  @relation("driver_onboard_forms_rejected_byTouser_profiles")
+  credit_notes_credit_notes_owner_user_idTouser_profiles                credit_notes[]                  @relation("credit_notes_owner_user_idTouser_profiles")
+  credit_notes_credit_notes_voided_byTouser_profiles                    credit_notes[]                  @relation("credit_notes_voided_byTouser_profiles")
+  driver_onboard_forms_driver_onboard_forms_approved_byTouser_profiles  driver_onboard_forms[]          @relation("driver_onboard_forms_approved_byTouser_profiles")
+  driver_onboard_forms_driver_onboard_forms_converted_byTouser_profiles driver_onboard_forms[]          @relation("driver_onboard_forms_converted_byTouser_profiles")
+  driver_onboard_forms_driver_onboard_forms_rejected_byTouser_profiles  driver_onboard_forms[]          @relation("driver_onboard_forms_rejected_byTouser_profiles")
+  driver_request_comments_authored                                      driver_request_comments[]       @relation("driver_request_comments_user")
+  driver_request_status_history_changes                                 driver_request_status_history[] @relation("driver_request_status_history_user")
+  driver_requests_assigned                                              driver_requests[]               @relation("driver_requests_assigned_to")
+  driver_requests_resolved                                              driver_requests[]               @relation("driver_requests_resolved_by")
   file_uploads                                                          file_uploads[]
   insurance_files                                                       insurance_files[]
   invoice                                                               invoice[]
-  invoice_payments_invoice_payments_recorded_byTouser_profiles          invoice_payments[]      @relation("invoice_payments_recorded_byTouser_profiles")
-  invoice_payments_invoice_payments_reversed_byTouser_profiles          invoice_payments[]      @relation("invoice_payments_reversed_byTouser_profiles")
+  invoice_payments_invoice_payments_recorded_byTouser_profiles          invoice_payments[]              @relation("invoice_payments_recorded_byTouser_profiles")
+  invoice_payments_invoice_payments_reversed_byTouser_profiles          invoice_payments[]              @relation("invoice_payments_reversed_byTouser_profiles")
   loan_contracts                                                        loan_contracts[]
   loan_files                                                            loan_files[]
   permission_audit_log                                                  permission_audit_log[]
   subscription                                                          subscription[]
   subscription_item                                                     subscription_item[]
-  user_permissions_user_permissions_granted_byTouser_profiles           user_permissions[]      @relation("user_permissions_granted_byTouser_profiles")
-  user_permissions_user_permissions_revoked_byTouser_profiles           user_permissions[]      @relation("user_permissions_revoked_byTouser_profiles")
-  user_permissions_user_permissions_user_idTouser_profiles              user_permissions[]      @relation("user_permissions_user_idTouser_profiles")
-  companies                                                             companies?              @relation(fields: [selected_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_roles_user_roles_assigned_byTouser_profiles                      user_roles[]            @relation("user_roles_assigned_byTouser_profiles")
-  user_roles_user_roles_revoked_byTouser_profiles                       user_roles[]            @relation("user_roles_revoked_byTouser_profiles")
-  user_roles_user_roles_user_idTouser_profiles                          user_roles[]            @relation("user_roles_user_idTouser_profiles")
-  driver_requests_assigned                                              driver_requests[]       @relation("driver_requests_assigned_to")
-  driver_requests_resolved                                              driver_requests[]       @relation("driver_requests_resolved_by")
-  driver_request_comments_authored                                      driver_request_comments[] @relation("driver_request_comments_user")
-  driver_request_status_history_changes                                 driver_request_status_history[] @relation("driver_request_status_history_user")
+  user_permissions_user_permissions_granted_byTouser_profiles           user_permissions[]              @relation("user_permissions_granted_byTouser_profiles")
+  user_permissions_user_permissions_revoked_byTouser_profiles           user_permissions[]              @relation("user_permissions_revoked_byTouser_profiles")
+  user_permissions_user_permissions_user_idTouser_profiles              user_permissions[]              @relation("user_permissions_user_idTouser_profiles")
+  companies                                                             companies?                      @relation(fields: [selected_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_roles_user_roles_assigned_byTouser_profiles                      user_roles[]                    @relation("user_roles_assigned_byTouser_profiles")
+  user_roles_user_roles_revoked_byTouser_profiles                       user_roles[]                    @relation("user_roles_revoked_byTouser_profiles")
+  user_roles_user_roles_user_idTouser_profiles                          user_roles[]                    @relation("user_roles_user_idTouser_profiles")
 
   @@schema("public")
 }
@@ -1266,6 +1336,366 @@ model user_roles {
   @@index([user_id], map: "idx_user_roles_user")
   @@index([user_id, company_id], map: "idx_user_roles_user_company")
   @@index([user_id, company_id, is_active], map: "idx_user_roles_user_company_active")
+  @@schema("public")
+}
+
+model driver_request_categories {
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                @default(now()) @db.Timestamptz(6)
+  owner_company_id String                  @db.Uuid
+  name             String                  @db.VarChar(100)
+  description      String?
+  default_severity driver_request_severity @default(medium)
+  is_active        Boolean                 @default(true)
+  companies        companies               @relation(fields: [owner_company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  driver_requests  driver_requests[]
+
+  @@index([owner_company_id], map: "idx_driver_req_categories_company")
+  @@index([is_active], map: "idx_driver_req_categories_active")
+  @@schema("public")
+}
+
+model driver_requests {
+  id                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  owner_company_id              String                          @db.Uuid
+  driver_id                     String                          @db.Uuid
+  category_id                   String                          @db.Uuid
+  title                         String                          @db.VarChar(255)
+  description                   String?
+  severity                      driver_request_severity
+  status                        driver_request_status           @default(new)
+  assigned_to                   String?                         @db.Uuid
+  resolved_at                   DateTime?                       @db.Timestamptz(6)
+  resolved_by                   String?                         @db.Uuid
+  resolve_comment               String?
+  driver_request_comments       driver_request_comments[]
+  driver_request_status_history driver_request_status_history[]
+  assigned_user                 user_profiles?                  @relation("driver_requests_assigned_to", fields: [assigned_to], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver_request_categories     driver_request_categories       @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drivers                       drivers                         @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  companies                     companies                       @relation(fields: [owner_company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  resolved_user                 user_profiles?                  @relation("driver_requests_resolved_by", fields: [resolved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([owner_company_id], map: "idx_driver_requests_company")
+  @@index([driver_id], map: "idx_driver_requests_driver")
+  @@index([status], map: "idx_driver_requests_status")
+  @@index([category_id], map: "idx_driver_requests_category")
+  @@schema("public")
+}
+
+model driver_request_comments {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  request_id       String          @db.Uuid
+  comment          String
+  is_staff_comment Boolean         @default(false)
+  author_driver_id String?         @db.Uuid
+  author_user_id   String?         @db.Uuid
+  author_driver    drivers?        @relation("driver_request_comments_driver", fields: [author_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  author_user      user_profiles?  @relation("driver_request_comments_user", fields: [author_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver_requests  driver_requests @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([request_id], map: "idx_driver_req_comments_request")
+  @@schema("public")
+}
+
+model driver_request_status_history {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at      DateTime               @default(now()) @db.Timestamptz(6)
+  request_id      String                 @db.Uuid
+  from_status     driver_request_status?
+  to_status       driver_request_status
+  changed_by      String?                @db.Uuid
+  note            String?
+  duration_ms     BigInt?
+  changed_by_user user_profiles?         @relation("driver_request_status_history_user", fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver_requests driver_requests        @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([request_id], map: "idx_driver_req_history_request")
+  @@schema("public")
+}
+
+model company_payment_options {
+  id                         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                 String                   @db.Uuid
+  provider_payment_method_id String                   @db.Uuid
+  is_enabled                 Boolean                  @default(true)
+  is_default                 Boolean                  @default(false)
+  settings                   Json?                    @default("{}")
+  created_at                 DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                 @default(now()) @db.Timestamptz(6)
+  disabled_at                DateTime?                @db.Timestamptz(6)
+  companies                  companies                @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "company_payment_options_company_fkey")
+  provider_payment_methods   provider_payment_methods @relation(fields: [provider_payment_method_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "company_payment_options_provider_method_fkey")
+
+  @@unique([company_id, provider_payment_method_id], map: "company_payment_options_unique")
+  @@index([company_id, is_enabled], map: "idx_company_payment_options_company")
+  @@schema("payments")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model invoice_payment_attempts {
+  id                                                                String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_company_id                                                  String                   @db.Uuid
+  invoice_id                                                        String                   @db.Uuid
+  driver_id                                                         String                   @db.Uuid
+  contract_id                                                       String                   @db.Uuid
+  subscription_id                                                   String                   @db.Uuid
+  payment_method_setup_id                                           String?                  @db.Uuid
+  payment_agreement_id                                              String?                  @db.Uuid
+  provider_payment_method_id                                        String                   @db.Uuid
+  attempt_source                                                    attempt_source
+  attempt_sequence                                                  Int
+  idempotency_key                                                   String?
+  external_payment_id                                               String?
+  external_payment_intent_id                                        String?
+  amount_requested                                                  Int
+  amount_received                                                   Int                      @default(0)
+  currency                                                          String                   @db.VarChar(10)
+  status                                                            attempt_status           @default(pending)
+  provider_status                                                   String?
+  failure_code                                                      String?
+  failure_message                                                   String?
+  attempted_at                                                      DateTime                 @default(now()) @db.Timestamptz(6)
+  completed_at                                                      DateTime?                @db.Timestamptz(6)
+  triggered_by_user_id                                              String?                  @db.Uuid
+  metadata                                                          Json?                    @default("{}")
+  created_at                                                        DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                                                        DateTime                 @default(now()) @db.Timestamptz(6)
+  payment_agreements                                                payment_agreements?      @relation(fields: [payment_agreement_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_agreement_fkey")
+  companies                                                         companies                @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_company_fkey")
+  contracts                                                         contracts                @relation(fields: [contract_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_contract_fkey")
+  drivers                                                           drivers                  @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_driver_fkey")
+  invoice_invoice_payment_attempts_invoice_idToinvoice              invoice                  @relation("invoice_payment_attempts_invoice_idToinvoice", fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_invoice_fkey")
+  payment_method_setups                                             payment_method_setups?   @relation(fields: [payment_method_setup_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_method_setup_fkey")
+  provider_payment_methods                                          provider_payment_methods @relation(fields: [provider_payment_method_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_provider_method_fkey")
+  subscription                                                      subscription             @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_payment_attempts_subscription_fkey")
+  invoice_invoice_last_payment_attempt_idToinvoice_payment_attempts invoice[]                @relation("invoice_last_payment_attempt_idToinvoice_payment_attempts")
+  payment_intent                                                    payment_intent[]
+
+  @@unique([invoice_id, attempt_sequence], map: "uniq_invoice_payment_attempts_sequence")
+  @@index([payment_agreement_id], map: "idx_invoice_payment_attempts_agreement")
+  @@index([attempted_at], map: "idx_invoice_payment_attempts_attempted_at")
+  @@index([owner_company_id], map: "idx_invoice_payment_attempts_company")
+  @@index([invoice_id, status], map: "idx_invoice_payment_attempts_invoice_status")
+  @@schema("payments")
+}
+
+model payment_agreements {
+  id                         String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_company_id           String                     @db.Uuid
+  contract_id                String                     @db.Uuid
+  subscription_id            String                     @db.Uuid
+  driver_id                  String                     @db.Uuid
+  payment_method_setup_id    String                     @db.Uuid
+  provider_payment_method_id String                     @db.Uuid
+  agreement_type             agreement_type
+  external_agreement_id      String?
+  status                     agreement_status           @default(pending)
+  verification_status        verification_status        @default(pending)
+  start_at                   DateTime?                  @db.Timestamptz(6)
+  end_at                     DateTime?                  @db.Timestamptz(6)
+  activated_at               DateTime?                  @db.Timestamptz(6)
+  revoked_at                 DateTime?                  @db.Timestamptz(6)
+  failed_at                  DateTime?                  @db.Timestamptz(6)
+  failure_code               String?
+  failure_message            String?
+  metadata                   Json?                      @default("{}")
+  created_at                 DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                   @default(now()) @db.Timestamptz(6)
+  last_synced_at             DateTime?                  @db.Timestamptz(6)
+  invoice_payment_attempts   invoice_payment_attempts[]
+  companies                  companies                  @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_agreements_company_fkey")
+  contracts                  contracts                  @relation(fields: [contract_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_agreements_contract_fkey")
+  drivers                    drivers                    @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_agreements_driver_fkey")
+  payment_method_setups      payment_method_setups      @relation(fields: [payment_method_setup_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_agreements_method_setup_fkey")
+  provider_payment_methods   provider_payment_methods   @relation(fields: [provider_payment_method_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_agreements_provider_method_fkey")
+  subscription               subscription               @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_agreements_subscription_fkey")
+  invoice                    invoice[]
+  payment_intent             payment_intent[]
+  payment_links              payment_links[]
+
+  @@index([owner_company_id], map: "idx_payment_agreements_company")
+  @@index([contract_id], map: "idx_payment_agreements_contract")
+  @@index([driver_id, status], map: "idx_payment_agreements_driver_status")
+  @@index([status, verification_status], map: "idx_payment_agreements_status_verification")
+  @@index([subscription_id], map: "idx_payment_agreements_subscription")
+  @@schema("payments")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_method_setups {
+  id                         String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_company_id           String                     @db.Uuid
+  driver_id                  String                     @db.Uuid
+  provider_customer_id       String                     @db.Uuid
+  provider_payment_method_id String                     @db.Uuid
+  external_payment_method_id String?
+  external_mandate_id        String?
+  status                     method_setup_status        @default(pending)
+  verification_status        verification_status        @default(pending)
+  is_preferred               Boolean                    @default(false)
+  display_label              String?
+  fingerprint                String?
+  last4                      String?                    @db.VarChar(4)
+  expiry_month               Int?                       @db.SmallInt
+  expiry_year                Int?                       @db.SmallInt
+  verified_at                DateTime?                  @db.Timestamptz(6)
+  disabled_at                DateTime?                  @db.Timestamptz(6)
+  failed_at                  DateTime?                  @db.Timestamptz(6)
+  failure_code               String?
+  failure_message            String?
+  metadata                   Json?                      @default("{}")
+  created_at                 DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                   @default(now()) @db.Timestamptz(6)
+  last_synced_at             DateTime?                  @db.Timestamptz(6)
+  invoice_payment_attempts   invoice_payment_attempts[]
+  payment_agreements         payment_agreements[]
+  companies                  companies                  @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_method_setups_company_fkey")
+  drivers                    drivers                    @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_method_setups_driver_fkey")
+  payment_provider_customers payment_provider_customers @relation(fields: [provider_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_method_setups_provider_customer_fkey")
+  provider_payment_methods   provider_payment_methods   @relation(fields: [provider_payment_method_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_method_setups_provider_method_fkey")
+  invoice                    invoice[]
+  payment_intent             payment_intent[]
+  payment_links              payment_links[]
+
+  @@index([owner_company_id], map: "idx_payment_method_setups_company")
+  @@index([driver_id], map: "idx_payment_method_setups_driver")
+  @@index([driver_id, is_preferred], map: "idx_payment_method_setups_driver_preferred")
+  @@index([status, verification_status], map: "idx_payment_method_setups_status_verification")
+  @@schema("payments")
+}
+
+model payment_methods {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                     String                     @unique(map: "payment_methods_code_unique") @db.VarChar(50)
+  display_name             String                     @db.VarChar(100)
+  is_enabled               Boolean                    @default(true)
+  metadata                 Json?                      @default("{}")
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  disabled_at              DateTime?                  @db.Timestamptz(6)
+  provider_payment_methods provider_payment_methods[]
+
+  @@schema("payments")
+}
+
+model payment_provider_customers {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_company_id      String                   @db.Uuid
+  driver_id             String                   @db.Uuid
+  provider_id           String                   @db.Uuid
+  external_customer_id  String
+  status                provider_customer_status @default(active)
+  is_default            Boolean                  @default(false)
+  metadata              Json?                    @default("{}")
+  created_at            DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                 @default(now()) @db.Timestamptz(6)
+  last_synced_at        DateTime?                @db.Timestamptz(6)
+  payment_method_setups payment_method_setups[]
+  companies             companies                @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_provider_customers_company_fkey")
+  drivers               drivers                  @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_provider_customers_driver_fkey")
+  payment_providers     payment_providers        @relation(fields: [provider_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_provider_customers_provider_fkey")
+
+  @@unique([driver_id, provider_id], map: "uniq_payment_provider_customers_driver_provider")
+  @@unique([provider_id, external_customer_id], map: "uniq_payment_provider_customers_external")
+  @@index([owner_company_id], map: "idx_payment_provider_customers_company")
+  @@index([driver_id], map: "idx_payment_provider_customers_driver")
+  @@index([provider_id, status], map: "idx_payment_provider_customers_provider_status")
+  @@schema("payments")
+}
+
+model payment_providers {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                       String                       @unique(map: "payment_providers_code_unique") @db.VarChar(50)
+  display_name               String                       @db.VarChar(100)
+  is_enabled                 Boolean                      @default(true)
+  metadata                   Json?                        @default("{}")
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  disabled_at                DateTime?                    @db.Timestamptz(6)
+  payment_provider_customers payment_provider_customers[]
+  payment_state_events       payment_state_events[]
+  provider_payment_methods   provider_payment_methods[]
+
+  @@schema("payments")
+}
+
+model payment_state_events {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_company_id  String             @db.Uuid
+  aggregate_type    String             @db.VarChar(50)
+  aggregate_id      String             @db.Uuid
+  event_type        String             @db.VarChar(100)
+  from_status       String?            @db.VarChar(50)
+  to_status         String?            @db.VarChar(50)
+  provider_id       String?            @db.Uuid
+  external_event_id String?
+  occurred_at       DateTime           @default(now()) @db.Timestamptz(6)
+  received_at       DateTime           @default(now()) @db.Timestamptz(6)
+  processed_at      DateTime?          @db.Timestamptz(6)
+  payload           Json?              @default("{}")
+  processing_error  String?
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  companies         companies          @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_state_events_company_fkey")
+  payment_providers payment_providers? @relation(fields: [provider_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payment_state_events_provider_fkey")
+
+  @@index([aggregate_type, aggregate_id], map: "idx_payment_state_events_aggregate")
+  @@index([event_type], map: "idx_payment_state_events_event_type")
+  @@index([occurred_at], map: "idx_payment_state_events_occurred_at")
+  @@schema("payments")
+}
+
+model provider_payment_methods {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_id              String                     @db.Uuid
+  method_id                String                     @db.Uuid
+  is_enabled               Boolean                    @default(true)
+  metadata                 Json?                      @default("{}")
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  disabled_at              DateTime?                  @db.Timestamptz(6)
+  company_payment_options  company_payment_options[]
+  invoice_payment_attempts invoice_payment_attempts[]
+  payment_agreements       payment_agreements[]
+  payment_method_setups    payment_method_setups[]
+  payment_methods          payment_methods            @relation(fields: [method_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "provider_payment_methods_method_fkey")
+  payment_providers        payment_providers          @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "provider_payment_methods_provider_fkey")
+  invoice                  invoice[]
+  payment_intent           payment_intent[]
+  payment_links            payment_links[]
+
+  @@unique([provider_id, method_id], map: "provider_payment_methods_unique")
+  @@index([method_id, is_enabled], map: "idx_provider_payment_methods_method")
+  @@index([provider_id, is_enabled], map: "idx_provider_payment_methods_provider")
+  @@schema("payments")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model contract_documents {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime?              @default(now()) @db.Timestamptz(6)
+  file_name        String
+  file_extension   String?
+  file_size        Decimal?               @db.Decimal
+  file_path        String
+  owner_user_id    String?                @db.Uuid
+  owner_company_id String?                @db.Uuid
+  parent_id        String                 @db.Uuid
+  document_type    contract_document_type @default(Other)
+  expiry_date      DateTime?              @db.Timestamptz(6)
+  companies        companies?             @relation(fields: [owner_company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_profiles    user_profiles?         @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contracts        contracts              @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([document_type], map: "idx_contract_documents_document_type")
+  @@index([expiry_date], map: "idx_contract_documents_expiry_date")
+  @@index([owner_company_id], map: "idx_contract_documents_owner_company")
+  @@index([owner_user_id], map: "idx_contract_documents_owner_user")
+  @@index([parent_id], map: "idx_contract_documents_parent")
   @@schema("public")
 }
 
@@ -1441,8 +1871,6 @@ enum subscription_status {
   @@schema("public")
 }
 
-// ─── Driver Requests (Tickets) ───────────────────────────────────────────────
-
 enum driver_request_status {
   new
   in_progress
@@ -1462,81 +1890,87 @@ enum driver_request_severity {
   @@schema("public")
 }
 
-model driver_request_categories {
-  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at       DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime                 @default(now()) @db.Timestamptz(6)
-  owner_company_id String                   @db.Uuid
-  name             String                   @db.VarChar(100)
-  description      String?
-  default_severity driver_request_severity  @default(medium)
-  is_active        Boolean                  @default(true)
-  companies        companies                @relation(fields: [owner_company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  driver_requests  driver_requests[]
+enum agreement_status {
+  pending
+  active
+  revoked
+  failed
+  expired
 
-  @@index([owner_company_id], map: "idx_driver_req_categories_company")
-  @@index([is_active], map: "idx_driver_req_categories_active")
-  @@schema("public")
+  @@schema("payments")
 }
 
-model driver_requests {
-  id               String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at       DateTime                     @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime                     @default(now()) @db.Timestamptz(6)
-  owner_company_id String                       @db.Uuid
-  driver_id        String                       @db.Uuid
-  category_id      String                       @db.Uuid
-  title            String                       @db.VarChar(255)
-  description      String?
-  severity         driver_request_severity
-  status           driver_request_status        @default(new)
-  assigned_to      String?                      @db.Uuid
-  resolved_at      DateTime?                    @db.Timestamptz(6)
-  resolved_by      String?                      @db.Uuid
-  resolve_comment  String?
-  companies        companies                    @relation(fields: [owner_company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  drivers          drivers                      @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  driver_request_categories driver_request_categories @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assigned_user    user_profiles?               @relation("driver_requests_assigned_to", fields: [assigned_to], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  resolved_user    user_profiles?               @relation("driver_requests_resolved_by", fields: [resolved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  driver_request_comments       driver_request_comments[]
-  driver_request_status_history driver_request_status_history[]
+enum agreement_type {
+  payto_recurring
+  card_recurring
+  direct_debit_recurring
 
-  @@index([owner_company_id], map: "idx_driver_requests_company")
-  @@index([driver_id], map: "idx_driver_requests_driver")
-  @@index([status], map: "idx_driver_requests_status")
-  @@index([category_id], map: "idx_driver_requests_category")
-  @@schema("public")
+  @@schema("payments")
 }
 
-model driver_request_comments {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at        DateTime        @default(now()) @db.Timestamptz(6)
-  request_id        String          @db.Uuid
-  comment           String
-  is_staff_comment  Boolean         @default(false)
-  author_driver_id  String?         @db.Uuid
-  author_user_id    String?         @db.Uuid
-  driver_requests   driver_requests @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  author_driver     drivers?        @relation("driver_request_comments_driver", fields: [author_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  author_user       user_profiles?  @relation("driver_request_comments_user", fields: [author_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+enum attempt_source {
+  manual
+  scheduled_job
+  webhook_reconcile
+  retry_job
 
-  @@index([request_id], map: "idx_driver_req_comments_request")
-  @@schema("public")
+  @@schema("payments")
 }
 
-model driver_request_status_history {
-  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at   DateTime              @default(now()) @db.Timestamptz(6)
-  request_id   String                @db.Uuid
-  from_status  driver_request_status?
-  to_status    driver_request_status
-  changed_by   String?               @db.Uuid
-  note         String?
-  duration_ms  BigInt?
-  driver_requests driver_requests   @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  changed_by_user user_profiles?    @relation("driver_request_status_history_user", fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+enum attempt_status {
+  pending
+  processing
+  succeeded
+  failed
+  canceled
+  unknown
 
-  @@index([request_id], map: "idx_driver_req_history_request")
+  @@schema("payments")
+}
+
+enum collection_status {
+  not_started
+  pending_settlement
+  settled
+  failed
+  partially_settled
+  canceled
+
+  @@schema("payments")
+}
+
+enum method_setup_status {
+  pending
+  active
+  disabled
+  failed
+
+  @@schema("payments")
+}
+
+enum provider_customer_status {
+  active
+  inactive
+  blocked
+
+  @@schema("payments")
+}
+
+enum verification_status {
+  not_required
+  pending
+  verified
+  failed
+
+  @@schema("payments")
+}
+
+enum contract_document_type {
+  Insurance
+  InspectionReport
+  Contract
+  Registration
+  Other
+
   @@schema("public")
 }
